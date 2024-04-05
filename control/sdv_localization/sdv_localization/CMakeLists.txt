@@ -28,7 +28,7 @@ find_package(nav_msgs REQUIRED)
 find_package(std_srvs REQUIRED)
 find_package(tf2_geometry_msgs REQUIRED)
 find_package(rosidl_default_generators REQUIRED)
-find_package(sbg_driver REQUIRED)
+# find_package(sbg_driver REQUIRED)
 #find_package(sdv_localization_msgs REQUIRED)
 
 # find_package(ament_cmake_python REQUIRED)

@@ -19,7 +19,7 @@
   <!-- <depend>vectornav_msgs</depend> -->
   <depend>tf2_geometry_msgs</depend>
   <depend>nav_msgs</depend>
-  <depend>sbg_driver</depend>
+  <!-- <depend>sbg_driver</depend> -->
   <!-- <depend>sdv_localization_msgs</depend> -->
 
   <exec_depend>vectornav_msgs</exec_depend>

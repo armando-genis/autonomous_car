@@ -19,15 +19,15 @@ import launch_ros
 
 def generate_launch_description():
 
-    pkg_share = launch_ros.substitutions.FindPackageShare(package='lidar_localization_ros2').find('lidar_localization_ros2')
+    pkg_share = launch_ros.substitutions.FindPackageShare(package='mapping_localization_launch').find('mapping_localization_launch')
     default_rviz_config_path = os.path.join(pkg_share, 'rviz/localization.rviz')
 
     lidar_localization_ros2 = IncludeLaunchDescription(
         PythonLaunchDescriptionSource([
             PathJoinSubstitution([
-                FindPackageShare('lidar_localization_ros2'),
+                FindPackageShare('mapping_localization_launch'),
                 'launch',
-                'lidar_localization.launch.py'
+                'lidar_localization_ros2.launch.py'
             ])
         ]),
     )

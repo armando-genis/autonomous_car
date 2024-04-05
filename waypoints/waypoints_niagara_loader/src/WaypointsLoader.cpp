@@ -220,7 +220,9 @@ void WaypointsLoader::visualizeNewWaypoints() {
 
         marker_info.ns = "waypoints_info";
         std::ostringstream oss;
-        oss << std::fixed << std::setprecision(3) << i << "   " << waypoints[i](1);
+        // oss << std::fixed << std::setprecision(3) << i << "   " << waypoints[i](0) << "," << waypoints[i](1);
+        oss << std::fixed << std::setprecision(3) << i << "   ";
+
         marker_info.text = oss.str();
 
         marker_array_info.markers.push_back(marker_info);
