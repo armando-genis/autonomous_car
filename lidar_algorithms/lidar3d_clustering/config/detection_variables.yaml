@@ -1,0 +1,10 @@
+lidar3d_Clustering_node:
+  ros__parameters:
+    GROUND_THRESHOLD: 0.03
+    CLUSTER_THRESH: 0.25
+    CLUSTER_MAX_SIZE: 5000
+    CLUSTER_MIN_SIZE: 10
+    USE_PCA_BOX: 0
+    DISPLACEMENT_THRESH: 1.0
+    IOU_THRESH: 1.0
+    USE_TRACKING: 1

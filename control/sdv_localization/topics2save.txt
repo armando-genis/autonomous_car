@@ -1,0 +1,23 @@
+/vectornav/raw/common /vectornav/raw/time /vectornav/raw/imu /vectornav/raw/gps /vectornav/raw/gps2 /vectornav/raw/attitude /vectornav/raw/ins /ifm_encoder /potentiometer_step
+
+/vectornav/raw/common /vectornav/raw/ins /sdc_control/control_signal/D /ifm_encoder
+
+/vectornav/raw/common /vectornav/raw/ins /ifm_encoder
+
+/vectornav/raw/common /vectornav/raw/ins /sbg/ekf_euler /sbg/ekf_nav /sbg/ekf_quat /sbg/gps_hdt /sbg/gps_pos /sbg/gps_raw /sbg/gps_vel /sbg/imu_data /sbg/imu_short /sbg/mag /sbg/ship_motion /sbg/status /sbg/utc_time
+
+To override the xbox_controller command to toggle autonomous mode:
+
+Enable autonomous mode:
+
+'''
+cansend can0 401#0201
+'''
+
+Disable autonomous mode:
+
+'''
+cansend can0 401#0200
+'''
+
+--remap /imu/data:=/sbg/imu/data /imu/nav_sat_fix:=/sbg/nav_sat_fix /imu/odometry:=/sbg/odom /imu/pos_ecef:=/sbg/pos_ecef

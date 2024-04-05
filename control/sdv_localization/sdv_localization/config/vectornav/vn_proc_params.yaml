@@ -1,0 +1,50 @@
+/VnNedPoseNode:
+  ros__parameters:
+    angular_velocity_covariance:
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    global_ecef_reference:
+    - -1027768.8799482058
+    - -5661145.344370203
+    - 2744403.2051628013
+    global_lla_reference:
+    - 25.65014586802158
+    - -100.28985364572286
+    linear_acceleration_covariance:
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    magnetic_covariance:
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    orientation_covariance:
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    use_sim_time: false

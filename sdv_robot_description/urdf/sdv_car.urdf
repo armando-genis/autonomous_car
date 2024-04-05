@@ -1,0 +1,166 @@
+<?xml version="1.0" ?>
+
+<robot name="dasautonomeauto" xmlns:xacro="http://www.ros.org/wiki/xacro">
+  <!-- =============== Link & Joint =============== -->
+  <!-- Base Footprint -->
+
+
+  <xacro:include filename="$(find sdv_robot_description)/urdf/wheels_sdv.xacro" />
+
+
+  <!-- Robot mechanical and motor parameters -->
+  <xacro:property name="PI" value="3.1415926535897931"/>
+  <xacro:property name="wheel_width" value="0.175" />
+  <xacro:property name="clearance" value="${0.3/2.0}" />
+
+      <!--  BASE FOOTPRINT  -->
+  <link name="base_footprint"/>
+  <joint name="base_link_joint" type="fixed">
+    <origin rpy="0 0 0" xyz="0 0 0.5"/>
+    <parent link="base_footprint"/>
+    <child link="chassis_link"/>
+  </joint>
+
+  <link name="chassis_link">
+    <visual>
+      <origin xyz="0 0 1.3" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="file://$(find sdv_robot_description)/meshes/sdv.stl" />
+      </geometry>
+      <material name="Gray">
+        <color rgba="1.0 1.0 1.0 1.0"/>
+      </material>
+    </visual>
+    <collision>
+      <origin xyz="0 0 1.3" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="file://$(find sdv_robot_description)/meshes/sdv.stl" />
+      </geometry>
+    </collision>
+    <inertial>
+      <mass value="125.0" />
+      <origin xyz="0 0 0" />
+      <inertia  ixx="1.391" ixy="0.004"  ixz="0.0"  iyy="6.853"  iyz="0.0"  izz="6.125" />
+    </inertial>
+  </link>
+
+  <link name="velodyne"/>
+
+  <joint name="velodyne_base_mount_joint" type="fixed">
+    <origin xyz="0 0 1.8" rpy="-0.174533 0 0" />
+    <parent link="base_link"/>
+    <child link="velodyne"/>
+  </joint>
+
+
+
+  <!-- FRONT WHEELS -->
+  <!-- <xacro:front_wheel_to_base lr_prefix="left" fr_prefix="front" lr_reflect="1" fr_reflect="1" />
+  <xacro:front_wheel_to_base lr_prefix="right" fr_prefix="front" lr_reflect="-1" fr_reflect="1" />
+  <xacro:rear_wheel_to_base  lr_prefix="left" fr_prefix="rear" lr_reflect="1" fr_reflect="1" />
+  <xacro:rear_wheel_to_base  lr_prefix="right" fr_prefix="rear" lr_reflect="-1" fr_reflect="1" /> -->
+
+  <!-- =============== Transmission =============== -->
+  <!-- <transmission name="right_wheel_trans">
+    <type>transmission_interface/SimpleTransmission</type>
+    <joint name="right_rear_axle">
+      <hardwareInterface>hardware_interface/VelocityJointInterface</hardwareInterface>
+    </joint>
+    <actuator name="right_wheel_motor">
+      <hardwareInterface>hardware_interface/VelocityJointInterface</hardwareInterface>
+      <mechanicalReduction>30</mechanicalReduction>
+    </actuator>
+  </transmission>
+  <transmission name="left_wheel_trans">
+    <type>transmission_interface/SimpleTransmission</type>
+    <joint name="left_rear_axle">
+      <hardwareInterface>hardware_interface/VelocityJointInterface</hardwareInterface>
+    </joint>
+    <actuator name="left_wheel_motor">
+      <hardwareInterface>hardware_interface/VelocityJointInterface</hardwareInterface>
+      <mechanicalReduction>30</mechanicalReduction>
+    </actuator>
+  </transmission> -->
+
+  <!-- =============== Velodyne =============== -->
+    <joint name="velodyne_base_mount_joint" type="fixed">
+      <!-- <origin xyz="0 0 1.8" rpy="-0.174533 0 0" /> -->
+      <origin xyz="0 0 1.8" rpy="0 0 0" />
+      <parent link="base_link"/>
+      <child link="velodyne"/>
+    </joint>
+
+    <link name="velodyne_base_link">
+      <inertial>
+        <mass value="0.83"/>
+        <origin xyz="0 0 0.03585"/>
+        <inertia ixx="${(0.83 * (3.0*0.0516*0.0516 + 0.0717*0.0717)) / 12.0}" ixy="0" ixz="0" iyy="${(0.83 * (3.0*0.0516*0.0516 + 0.0717*0.0717)) / 12.0}" iyz="0" izz="${0.5 * 0.83 * (0.0516*0.0516)}"/>
+      </inertial>
+      <visual>
+        <geometry>
+          <cylinder length="0.073" radius="0.04" />
+          <!-- <mesh filename="file://$(find niagara_model)/meshes/os1_64.dae" /> -->
+        </geometry>
+      </visual>
+      <visual>
+        <geometry>
+          <cylinder length="0.073" radius="0.04" />
+        </geometry>
+      </visual>
+      <collision>
+        <origin rpy="0 0 0" xyz="0 0 0.03585"/>
+        <geometry>
+          <cylinder radius="0.0516" length="0.0717"/>
+          <!-- <mesh filename="file://$(find niagara_model)/meshes/os1_64.dae" /> -->
+        </geometry>
+      </collision>
+    </link>
+
+    <joint name="$velodyne_base_scan_joint" type="fixed">
+      <origin xyz="0 0 0.0377" rpy="0 0 0"/>
+      <parent link="velodyne_base_link"/>
+      <child link="velodyne"/>
+    </joint>
+
+    <link name="velodyne">
+      <inertial>
+        <mass value="0.01"/>
+        <origin xyz="0 0 0"/>
+        <inertia ixx="1e-7" ixy="0" ixz="0" iyy="1e-7" iyz="0" izz="1e-7"/>
+      </inertial>
+      <visual>
+        <origin xyz="0 0 -0.0377"/>
+        <geometry>
+          <!-- <mesh filename="file://$(find niagara_model)/meshes/os1_64.dae" /> -->
+          <cylinder length="0.073" radius="0.04" />
+
+        </geometry>
+      </visual>
+    </link>
+
+
+  <!-- =============== detecor wall =============== -->
+  <joint name="detector_wall_joint" type="fixed">
+    <origin xyz="0 1.45 1.1" rpy="0 0 0" />
+    <parent link="base_footprint"/>
+    <child link="detector_wall"/>
+
+  </joint>
+
+  <link name="detector_wall">
+
+  </link>
+
+
+  <link name="vectornav">
+
+  </link>
+
+  <joint name="vectornav_joint" type="fixed">
+    <origin xyz="0 -0.2 1.8" rpy="0 0 0" />
+    <parent link="base_link"/>
+    <child link="vectornav"/>
+
+  </joint>
+
+</robot>
