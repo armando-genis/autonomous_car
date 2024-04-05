@@ -20,7 +20,7 @@ def generate_launch_description():
     vectornav = IncludeLaunchDescription(
         PythonLaunchDescriptionSource([
             PathJoinSubstitution([
-                FindPackageShare('vectornav'),
+                FindPackageShare('sensors_launch'),
                 'launch',
                 'vectornav.launch.py'
             ])
@@ -30,9 +30,9 @@ def generate_launch_description():
     velodyne = IncludeLaunchDescription(
         PythonLaunchDescriptionSource([
             PathJoinSubstitution([
-                FindPackageShare('velodyne'),
+                FindPackageShare('sensors_launch'),
                 'launch',
-                'velodyne-all-nodes-VLP32C-launch.py'
+                'velodyne-VLP32C-launch.py'
             ])
         ]),
     )
