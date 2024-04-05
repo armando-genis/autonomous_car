@@ -1,0 +1,10 @@
+velodyne_transform_node:
+    ros__parameters:
+        calibration: 32db.yaml
+        model: 32E
+        min_range: 1.45 ##CHANGED FROM 0.9
+        max_range: 100.0 ##Changed from 200
+        view_direction: 0.0
+        fixed_frame: ""
+        target_frame: ""
+        organize_cloud: true
