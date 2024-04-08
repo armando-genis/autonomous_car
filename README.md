@@ -42,6 +42,7 @@ colcon build --packages-select velodyne
 
 colcon build --packages-select lidar_imu_sync
 colcon build --packages-select mapping_localization_launch
+colcon build
 ```
 
  ## Set up ROS2
@@ -55,6 +56,17 @@ source install/setup.bash
  ## Sensors
 ```bash
 source install/setup.bash
-ros2 launch lidar_ground_getter lidar_ground.launch.py
+ros2 launch sdv_launch sensors.launch.py
 ```
 
+ ## Localization
+```bash
+source install/setup.bash
+ros2 launch sdv_launch localization.launch.py
+```
+
+ ## Control
+```bash
+source install/setup.bash
+ros2 launch sdv_launch control.launch.py
+```
