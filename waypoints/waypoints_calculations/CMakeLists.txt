@@ -38,7 +38,7 @@ if(BUILD_TESTING)
   ament_lint_auto_find_test_dependencies()
 endif()
 
-add_executable(waypoints_calculations src/WaypointsCalculations.cpp src/CubicSpline1D.cpp)
+add_executable(waypoints_calculations src/WaypointsCalculations.cpp)
 
 ament_target_dependencies(waypoints_calculations rclcpp geometry_msgs std_msgs nav_msgs visualization_msgs tf2 tf2_ros tf2_geometry_msgs)
 target_link_libraries(waypoints_calculations Eigen3::Eigen)

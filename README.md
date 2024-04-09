@@ -53,6 +53,11 @@ source /opt/ros/humble/setup.bash #for ro2 humble
 source install/setup.bash
 ```
 
+
+
+# Creation of waypoints
+
+
  ## Sensors
 ```bash
 source install/setup.bash

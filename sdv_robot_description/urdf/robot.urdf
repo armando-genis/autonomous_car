@@ -44,13 +44,13 @@
     </inertial>
   </link>
 
-  <link name="velodyne"/>
+  <!-- <link name="velodyne"/>
 
   <joint name="velodyne_base_mount_joint" type="fixed">
     <origin xyz="0 0 1.8" rpy="-0.174533 0 0" />
     <parent link="chassis_link"/>
     <child link="velodyne"/>
-  </joint>
+  </joint> -->
 
 
 
