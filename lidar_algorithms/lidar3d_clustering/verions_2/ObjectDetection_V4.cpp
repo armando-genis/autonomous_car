@@ -298,11 +298,11 @@ void ObjectDetection::publisherboxes(std::vector<BBox>&& bboxes, const std_msgs:
 
     visualization_msgs::msg::MarkerArray marker_array;
 
-    const std_msgs::msg::Header& header_base = "base_footprint";
+    const std_msgs::msg::Header& inp_header = header;
+
 
 
     int id = 0;
-    const std_msgs::msg::Header& inp_header = header_base;
     // Create a marker for each bounding box
     for (const auto& bbox : bboxes)
     {

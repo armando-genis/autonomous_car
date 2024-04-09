@@ -204,7 +204,9 @@ ObjectDetection::ObjectDetection(/* args */) : Node("lidar3d_clustering_node"), 
     zone_publisher_ = this->create_publisher<visualization_msgs::msg::MarkerArray>("visualization_zone", 10);
     publisher_warning_ = this->create_publisher<std_msgs::msg::Int32>("warning_status", 10);
 
-    hull_publisher_ = this->create_publisher<visualization_msgs::msg::Marker>("convex_hull_marker", 10);
+    hull_publisher_ = this->create_publisher<visualization_msgs::msg::Marker>(
+        "convex_hull_marker", 10); // Change "convex_hull_marker" and 10 to your desired topic and queue size
+
 
     obstacle_id_ = 0;
     // front_zone = Zone(Point{0.0, -1.0}, Point{0.0, 1.0}, Point{2.0, 1.0}, Point{2.0, -1.0});
@@ -695,31 +697,28 @@ void ObjectDetection::convex_hull(std::vector<pcl::PointCloud<pcl::PointXYZ>::Pt
 
                 visualization_msgs::msg::Marker hull_marker;
                 hull_marker.header.frame_id = "base_footprint"; 
-                // hull_marker.header.stamp = this->get_clock()->now();
+                hull_marker.header.stamp = this->get_clock()->now();
                 hull_marker.ns = "hull";
                 hull_marker.id = index;  // Use the index variable
                 hull_marker.type = visualization_msgs::msg::Marker::LINE_STRIP;
                 hull_marker.action = visualization_msgs::msg::Marker::ADD;
-                hull_marker.scale.x = 0.1;
-                hull_marker.scale.y = 10.0;
-                hull_marker.scale.z = 10.0;
-
-                hull_marker.color.r = 0.5;
-                hull_marker.color.g = 0.5;
-                hull_marker.color.b = 0.5;
+                hull_marker.scale.x = 1.0;
+                hull_marker.color.r = 0.0;
+                hull_marker.color.g = 0.0;
+                hull_marker.color.b = 1.0;
                 hull_marker.color.a = 1.0;
                 hull_marker.points = hull_points;
 
                 hull_publisher_->publish(hull_marker);
 
-                // RCLCPP_INFO(this->get_logger(), "Hull size: %zu", convexHull->size());
+                RCLCPP_INFO(this->get_logger(), "Hull size: %zu", convexHull->size());
             }
             else
             {
                 RCLCPP_INFO(this->get_logger(), "The chosen hull dimension is not correct.");
             }
 
-            index++; 
+            index++;  // Increment the index variable
         }
     }
 }

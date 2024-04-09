@@ -56,12 +56,14 @@ public:
     ~LidarGround();
 };
 
-LidarGround::LidarGround(/* args */): Node("lidar_livox_fusion_node")
+LidarGround::LidarGround(/* args */): Node("lidar_ground_getter_node")
 {
 
     sub_ = this->create_subscription<sensor_msgs::msg::PointCloud2>("/points_roi", 10, std::bind(&LidarGround::pointCloudCallback, this, std::placeholders::_1));
     pub_ = this->create_publisher<sensor_msgs::msg::PointCloud2>("/points_ground", 10);
-    RCLCPP_INFO(this->get_logger(), "lidar ground getter node initialized");
+
+    RCLCPP_INFO(this->get_logger(), "\033[1;32m----> lidar_ground_getter_node initialized.\033[0m");
+
 }
 
 LidarGround::~LidarGround()

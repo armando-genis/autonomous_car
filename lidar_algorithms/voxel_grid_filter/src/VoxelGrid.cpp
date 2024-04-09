@@ -72,7 +72,7 @@ VoxelGrid::VoxelGrid(/* args */): Node("voxel_grid_node")
     ROI_MAX_POINT = Eigen::Vector4f(roi_max_x_, roi_max_y_, roi_max_z_, 1);
     ROI_MIN_POINT = Eigen::Vector4f(roi_min_x_, roi_min_y_, roi_min_z_, 1);
 
-    RCLCPP_INFO(this->get_logger(), "waypoints_creator_node initialized");
+    RCLCPP_INFO(this->get_logger(), "\033[1;32m----> voxel_grid_node initialized.\033[0m");
 
 }
 

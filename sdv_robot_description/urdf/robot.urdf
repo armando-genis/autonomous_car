@@ -14,12 +14,12 @@
   <xacro:property name="clearance" value="${0.3/2.0}" />
 
       <!--  BASE FOOTPRINT  -->
-  <!-- <link name="base_footprint"/>
+  <link name="base_footprint"/>
   <joint name="base_link_joint" type="fixed">
     <origin rpy="0 0 0" xyz="0 0 0.5"/>
-    <parent link="base_footprint"/>
-    <child link="chassis_link"/>
-  </joint> -->
+    <parent link="chassis_link"/>
+    <child link="base_footprint"/>
+  </joint>
 
   <link name="chassis_link">
     <visual>
@@ -51,6 +51,18 @@
     <parent link="chassis_link"/>
     <child link="velodyne"/>
   </joint> -->
+
+  <!-- =============== detecor wall =============== -->
+  <joint name="detector_wall_joint" type="fixed">
+    <origin xyz="0 1.45 1.1" rpy="0 0 0" />
+    <parent link="chassis_link"/>
+    <child link="detector_wall"/>
+
+  </joint>
+
+  <link name="detector_wall">
+
+  </link>
 
 
 
