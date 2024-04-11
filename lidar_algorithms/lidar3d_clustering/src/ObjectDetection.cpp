@@ -170,6 +170,9 @@ private:
     rclcpp::Publisher<std_msgs::msg::Float32MultiArray>::SharedPtr hull_array_;
 
 
+    rclcpp::Publisher<lidar_msgs::msg::ObstacleData>::SharedPtr obstacle_data_publisher_;
+
+
 
 
 public:
@@ -217,6 +220,8 @@ ObjectDetection::ObjectDetection(/* args */) : Node("lidar3d_clustering_node"), 
     hull_publisher_ = this->create_publisher<visualization_msgs::msg::Marker>("convex_hull_marker", 10);
 
     hull_array_ = this->create_publisher<std_msgs::msg::Float32MultiArray>("convex_hull_array", 10);
+
+    obstacle_data_publisher_ = this->create_publisher<lidar_msgs::msg::ObstacleData>("obstacle_data", 10);
 
     obstacle_id_ = 0;
     // front_zone = Zone(Point{0.0, -1.0}, Point{0.0, 1.0}, Point{2.0, 1.0}, Point{2.0, -1.0});
@@ -685,8 +690,6 @@ void ObjectDetection::convex_hull(std::vector<pcl::PointCloud<pcl::PointXYZ>::Pt
 
         hull_vector.resize(cloud_clusters.size());
 
-
-        int total_points = 0;
         int index = 0;  // Declare an index variable
         for (auto& cluster : cloud_clusters)
         {
@@ -713,16 +716,14 @@ void ObjectDetection::convex_hull(std::vector<pcl::PointCloud<pcl::PointXYZ>::Pt
                     p.z = 0.0; 
                     hull_points.push_back(p);
 
-                    hull_vector[index].push_back(p);
-
-                    total_points += 2;
 
                 }
                 // Close the loop
                 hull_points.push_back(hull_points.front());
 
+                hull_vector[index] = hull_points;
+
                 // Create a marker for the convex hull
-    
                 visualization_msgs::msg::Marker hull_marker;
                 hull_marker.header.frame_id = "base_footprint"; 
                 // hull_marker.header.stamp = this->get_clock()->now();
@@ -754,8 +755,6 @@ void ObjectDetection::convex_hull(std::vector<pcl::PointCloud<pcl::PointXYZ>::Pt
 
         }
 
-
-
         // for (int i = 0; i < hull_vector.size(); i++)
         // {
         //     for (int j = 0; j < hull_vector[i].size(); j++)
@@ -766,7 +765,19 @@ void ObjectDetection::convex_hull(std::vector<pcl::PointCloud<pcl::PointXYZ>::Pt
         //     }
         // }
 
-        
+        lidar_msgs::msg::ObstacleData obstacle_msg;
+
+        for (const auto &cluster : hull_vector)
+        {   
+            lidar_msgs::msg::PointArray point_array_msg;
+            point_array_msg.points = cluster;
+            obstacle_msg.cluster_points.push_back(point_array_msg);
+        }
+
+        RCLCPP_INFO(this->get_logger(), "Hull size: %ld",  hull_vector.size());
+
+        obstacle_data_publisher_->publish(obstacle_msg);
+
 
     }
 }
