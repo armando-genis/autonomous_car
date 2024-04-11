@@ -15,6 +15,8 @@ find_package(vision_msgs REQUIRED)
 find_package(visualization_msgs REQUIRED) 
 find_package(tf2_ros REQUIRED) 
 find_package(geometry_msgs REQUIRED)
+find_package(lidar_msgs REQUIRED)
+
 
 # External dependencies
 find_package(Eigen3 REQUIRED)
@@ -45,7 +47,7 @@ endif()
 
 add_executable(lidar3d_clustering_node src/ObjectDetection.cpp)
 
-ament_target_dependencies(lidar3d_clustering_node rclcpp std_msgs geometry_msgs pcl_conversions sensor_msgs message_filters vision_msgs image_geometry visualization_msgs tf2_ros)
+ament_target_dependencies(lidar3d_clustering_node rclcpp std_msgs geometry_msgs pcl_conversions sensor_msgs message_filters vision_msgs image_geometry visualization_msgs tf2_ros lidar_msgs)
 target_link_libraries(lidar3d_clustering_node Eigen3::Eigen)
 target_link_libraries(lidar3d_clustering_node ${OpenCV_LIBS})
 

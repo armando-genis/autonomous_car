@@ -1,7 +1,7 @@
 <?xml version="1.0"?>
 <?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
 <package format="3">
-  <name>lidar3d_clustering</name>
+  <name>convex_hull_operation</name>
   <version>0.0.0</version>
   <description>TODO: Package description</description>
   <maintainer email="83677824+armando-genis@users.noreply.github.com">genis</maintainer>
@@ -9,23 +9,11 @@
 
   <buildtool_depend>ament_cmake</buildtool_depend>
 
-  <depend>rclcpp</depend>
   <depend>std_msgs</depend>
-  <depend>message_filters</depend>
-  <depend>vision_msgs</depend>
-  <depend>image_geometry</depend>
+  <depend>rclpy</depend>
   <depend>visualization_msgs</depend>
-  <depend>tf2_ros</depend>
-  <depend>geometry_msgs</depend>
-  <depend>lidar_msgs</depend>
 
 
-  <!-- External -->
-  <depend>eigen</depend>
-  <depend>opencv</depend>
-  <depend>pcl_conversions</depend>
-  <depend>pcl</depend>
-  
   <test_depend>ament_lint_auto</test_depend>
   <test_depend>ament_lint_common</test_depend>
 

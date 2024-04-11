@@ -4,12 +4,15 @@
 #include <sensor_msgs/msg/point_cloud2.hpp>
 #include <std_msgs/msg/int32.hpp>
 
+#include <std_msgs/msg/float32_multi_array.hpp>
+
 #include <visualization_msgs/msg/marker_array.hpp>
 #include <visualization_msgs/msg/marker.hpp>
-
-
-
 #include <geometry_msgs/msg/pose_stamped.hpp>
+
+
+#include <lidar_msgs/msg/obstacle_data.hpp>
+
 
 
 // C++
@@ -133,6 +136,11 @@ private:
     int32_t int_warining_value = 0;
     std_msgs::msg::Int32 message_int_warining_value;
 
+
+    vector<std::vector<geometry_msgs::msg::Point>> hull_vector;
+
+
+
     std::shared_ptr<lidar_obstacle_detector::ObstacleDetector<pcl::PointXYZ>> obstacle_detector;
 
     void box3dcreation(std::vector<pcl::PointCloud<pcl::PointXYZ>::Ptr>&& cloud_clusters, const std_msgs::msg::Header& header);
@@ -159,6 +167,8 @@ private:
     rclcpp::Publisher<std_msgs::msg::Int32>::SharedPtr publisher_warning_;
 
     rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr hull_publisher_;
+    rclcpp::Publisher<std_msgs::msg::Float32MultiArray>::SharedPtr hull_array_;
+
 
 
 
@@ -205,6 +215,8 @@ ObjectDetection::ObjectDetection(/* args */) : Node("lidar3d_clustering_node"), 
     publisher_warning_ = this->create_publisher<std_msgs::msg::Int32>("warning_status", 10);
 
     hull_publisher_ = this->create_publisher<visualization_msgs::msg::Marker>("convex_hull_marker", 10);
+
+    hull_array_ = this->create_publisher<std_msgs::msg::Float32MultiArray>("convex_hull_array", 10);
 
     obstacle_id_ = 0;
     // front_zone = Zone(Point{0.0, -1.0}, Point{0.0, 1.0}, Point{2.0, 1.0}, Point{2.0, -1.0});
@@ -664,6 +676,17 @@ void ObjectDetection::convex_hull(std::vector<pcl::PointCloud<pcl::PointXYZ>::Pt
 {
     if (!cloud_clusters.empty())
     {
+        
+        std_msgs::msg::Float32MultiArray clusters_points_array;
+        clusters_points_array.layout.dim.push_back(std_msgs::msg::MultiArrayDimension());
+        clusters_points_array.layout.dim[0].label = "cluster";
+        clusters_points_array.layout.dim[0].size = cloud_clusters.size();
+        clusters_points_array.layout.dim[0].stride = 1; 
+
+        hull_vector.resize(cloud_clusters.size());
+
+
+        int total_points = 0;
         int index = 0;  // Declare an index variable
         for (auto& cluster : cloud_clusters)
         {
@@ -689,10 +712,17 @@ void ObjectDetection::convex_hull(std::vector<pcl::PointCloud<pcl::PointXYZ>::Pt
                     p.y = point.y;
                     p.z = 0.0; 
                     hull_points.push_back(p);
+
+                    hull_vector[index].push_back(p);
+
+                    total_points += 2;
+
                 }
                 // Close the loop
                 hull_points.push_back(hull_points.front());
 
+                // Create a marker for the convex hull
+    
                 visualization_msgs::msg::Marker hull_marker;
                 hull_marker.header.frame_id = "base_footprint"; 
                 // hull_marker.header.stamp = this->get_clock()->now();
@@ -713,6 +743,7 @@ void ObjectDetection::convex_hull(std::vector<pcl::PointCloud<pcl::PointXYZ>::Pt
                 hull_publisher_->publish(hull_marker);
 
                 // RCLCPP_INFO(this->get_logger(), "Hull size: %zu", convexHull->size());
+
             }
             else
             {
@@ -720,7 +751,23 @@ void ObjectDetection::convex_hull(std::vector<pcl::PointCloud<pcl::PointXYZ>::Pt
             }
 
             index++; 
+
         }
+
+
+
+        // for (int i = 0; i < hull_vector.size(); i++)
+        // {
+        //     for (int j = 0; j < hull_vector[i].size(); j++)
+        //     {   
+        //         RCLCPP_INFO(this->get_logger(), "Hull Vector: %d",i);
+
+        //         RCLCPP_INFO(this->get_logger(), "Hull Vector: %f, %f", hull_vector[i][j].x, hull_vector[i][j].y);
+        //     }
+        // }
+
+        
+
     }
 }
 
