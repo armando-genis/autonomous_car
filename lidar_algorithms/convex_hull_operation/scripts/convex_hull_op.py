@@ -5,6 +5,8 @@ from rclpy.node import Node
 from std_msgs.msg import String, Float64
 from rclpy.timer import Timer
 from visualization_msgs.msg import Marker
+from lidar_msgs.msg import ObstacleData 
+
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -14,9 +16,8 @@ class PublisherNode(Node):
     def __init__(self):
         super().__init__('publisher_node')
 
-        # Variables
-        self.string_value = "Hello World!"
-        self.float_value = 0.0
+        # Variables to store the hull vectors
+        self.hull_vectors = []
 
         # Matplotlib setup for a blank graph
         self.fig, self.ax = plt.subplots()  # Create a figure and an axes
@@ -26,37 +27,58 @@ class PublisherNode(Node):
         self.ax.set_ylabel('y')  # Add a y-label to the axes
         plt.show(block=False)  # Show the plot non-blocking
 
-        # Timers, publishers & subscribers
-        self.string_publisher = self.create_publisher(String, 'string_topic', 10)
-        self.float_publisher = self.create_publisher(Float64, 'float_topic', 10)
 
-        self.hull_subscriber = self.create_subscription(Marker, 'convex_hull_marker', self.hull_marker_callback, 10)
-
-        self.timer = self.create_timer(0.2, self.timer_callback)  # in seconds
-
+        self.obstacle_data_subscriber = self.create_subscription(ObstacleData, 'obstacle_data',  self.obstacle_data_callback,  10)
+        
         self.get_logger().info("publisher_node initialized")
 
-    def timer_callback(self):
-        string_msg = String()
-        string_msg.data = self.string_value
-        self.string_publisher.publish(string_msg)
-
-        float_msg = Float64()
-        float_msg.data = self.float_value
-        self.float_publisher.publish(float_msg)
-
-        self.get_logger().info("I am publishing string: '%s', float: '%f'" % (self.string_value, self.float_value))
-
-        self.ax.clear() 
-        self.ax.plot([], [], 'r')  
-        plt.draw()  
-        plt.pause(0.001)  
 
 
-    def hull_marker_callback(self, msg):
-        self.get_logger().info(f'Received Marker: {msg.id}')
-        
+    def obstacle_data_callback(self, msg):
+        # Clear the existing data
+        self.hull_vectors.clear()
 
+        # Clear the plot
+        self.ax.clear()
+        self.ax.set_title('Hull Clusters')
+        self.ax.set_xlabel('x')
+        self.ax.set_ylabel('y')
+        # Set the axis limits
+        self.ax.set_xlim(-7, 7)  # Set x-axis limits from 0 to 15
+        self.ax.set_ylim(-3, 17)  # Set y-axis limits from 0 to 20
+
+        # Process each PointArray in the received ObstacleData message
+        for point_array in msg.cluster_points:
+            x_vals = [point.x for point in point_array.points]
+            y_vals = [point.y for point in point_array.points]
+
+            # Plot the points for this cluster
+            self.ax.plot(x_vals, y_vals, 'o-', label='Cluster')  # 'o-' for points connected by lines
+
+        # Update plot legends and redraw
+        self.ax.legend()
+        plt.draw()
+        plt.pause(0.001)  # Pause to allow update
+
+
+    # def obstacle_data_callback(self, msg):
+    #     # Clear the previous points to store the latest ones or remove this line to accumulate over time
+    #     self.hull_vectors.clear() 
+
+    #     # Process each PointArray in the received ObstacleData message
+    #     for point_array in msg.cluster_points:
+    #         # Create a list to store points from the current cluster
+    #         cluster_points = []
+    #         for point in point_array.points:
+    #             cluster_points.append((point.x, point.y, point.z))  # Append each point as a tuple
+
+    #         # Store the list of points for this cluster
+    #         self.hull_vectors.append(cluster_points)
+
+    #     # Log the total number of points received in this message
+    #     self.get_logger().info(f'Received {len(msg.cluster_points)} clusters; storing points.')
+
+    
 
 def main(args=None):
     rclpy.init(args=args)
