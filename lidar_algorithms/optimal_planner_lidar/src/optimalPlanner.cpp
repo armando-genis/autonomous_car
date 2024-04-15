@@ -9,6 +9,7 @@
 #include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
 #include <tf2_ros/buffer.h>
 #include <tf2_ros/transform_listener.h>
+#include <lidar_msgs/msg/obstacle_data.hpp>
 
 // PCL
 #include <pcl/point_types.h>
@@ -44,6 +45,10 @@ class optimalPlanner : public rclcpp::Node
 {
 private:
     /* data */
+    void obstacleDataCallback(const lidar_msgs::msg::ObstacleData::SharedPtr msg);
+
+    // Subscriber & Publisher
+    rclcpp::Subscription<lidar_msgs::msg::ObstacleData>::SharedPtr obstacle_data_sub_;
 public:
     optimalPlanner(/* args */);
     ~optimalPlanner();
@@ -51,12 +56,19 @@ public:
 
 optimalPlanner::optimalPlanner(/* args */): Node("optimal_planner_node")
 {
+
+    obstacle_data_sub_ = this->create_subscription<lidar_msgs::msg::ObstacleData>("/obstacle_data",10,std::bind(&optimalPlanner::obstacleDataCallback, this, std::placeholders::_1))
     RCLCPP_INFO(this->get_logger(), "\033[1;32m----> optimal_planner_node initialized.\033[0m");
 
 }
 
 optimalPlanner::~optimalPlanner()
 {
+}
+
+void optimalPlanner::obstacleDataCallback(const lidar_msgs::msg::ObstacleData::SharedPtr msg)
+{
+    RCLCPP_INFO(this->get_logger(), "\033[1;32m----> obstacleDataCallback.\033[0m");
 }
 
 int main(int argc, char** argv) {

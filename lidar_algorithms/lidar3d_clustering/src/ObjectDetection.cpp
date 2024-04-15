@@ -13,8 +13,6 @@
 
 #include <lidar_msgs/msg/obstacle_data.hpp>
 
-
-
 // C++
 #include <iostream>
 #include <vector>
@@ -279,7 +277,7 @@ void ObjectDetection::pointCloudCallback(const sensor_msgs::msg::PointCloud2::Sh
 
             convex_hull(std::move(cloud_clusters));
 
-            // RCLCPP_INFO(this->get_logger(), "Number of clusters: %zu", cloud_clusters.size());
+            RCLCPP_INFO(this->get_logger(), "Number of clusters: %zu", cloud_clusters.size());
 
             check_zones_all_points_version2(std::move(cloud_clusters));
 
