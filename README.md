@@ -19,6 +19,8 @@ sudo apt install ros-humble-pcl-msgs
 sudo apt install ros-humble-vision-opencv
 sudo apt install ros-humble-xacro
 sudo apt install ros-humble-velodyne-msgs
+sudo apt install ros-humble-diagnostic-updater
+
 
 #GTSAM librari for LIO-SAM
 sudo add-apt-repository ppa:borglab/gtsam-release-4.1
