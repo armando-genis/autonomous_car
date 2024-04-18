@@ -293,8 +293,6 @@ void ObjectDetection::pointCloudCallback(const sensor_msgs::msg::PointCloud2::Sh
                             .count();
 
 //   RCLCPP_INFO(this->get_logger(),"Planar Segmentation callback finished in %ld ms", execution_time);
-
-
 }
 
 
@@ -637,8 +635,7 @@ void ObjectDetection::publish_zone(const Zone& zone1, const Zone& zone2) {
 
 visualization_msgs::msg::Marker ObjectDetection::create_zone_marker(const Zone& zone, int id, const std::string& color) {
     visualization_msgs::msg::Marker marker;
-    marker.header.frame_id = "base_footprint"; 
-    marker.header.stamp = this->get_clock()->now();
+    marker.header.frame_id = "detector_wall"; 
     marker.ns = "zone";
     marker.id = id;
     marker.type = visualization_msgs::msg::Marker::LINE_STRIP;
@@ -729,13 +726,11 @@ void ObjectDetection::convex_hull(std::vector<pcl::PointCloud<pcl::PointXYZ>::Pt
                 hull_marker.id = index;  // Use the index variable
                 hull_marker.type = visualization_msgs::msg::Marker::LINE_STRIP;
                 hull_marker.action = visualization_msgs::msg::Marker::ADD;
-                hull_marker.scale.x = 0.1;
-                hull_marker.scale.y = 10.0;
-                hull_marker.scale.z = 10.0;
+                hull_marker.scale.x = 0.15;
 
-                hull_marker.color.r = 0.5;
-                hull_marker.color.g = 0.5;
-                hull_marker.color.b = 0.5;
+                hull_marker.color.r = 1.0;
+                hull_marker.color.g = 1.0;
+                hull_marker.color.b = 1.0;
                 hull_marker.color.a = 1.0;
                 hull_marker.points = hull_points;
 

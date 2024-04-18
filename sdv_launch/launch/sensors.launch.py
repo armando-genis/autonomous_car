@@ -61,5 +61,5 @@ def generate_launch_description():
         vectornav,
         velodyne,
         lidar_imu_sync,
-        # urdf_sdv,
+        urdf_sdv,
     ])
