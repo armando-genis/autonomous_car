@@ -48,7 +48,7 @@ def generate_launch_description():
         stanley_controller,
         TimerAction(
             actions=[
-                # can_controller
+                can_controller
             ],
             period='3.0',  
         ),

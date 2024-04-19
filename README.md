@@ -153,12 +153,15 @@ ros2 launch sdv_launch sensors.launch.py
 ```
 
  ## Localization Launcher 
+ This launch configuration sets up several components for navigation and visualization. It initializes lidar_localization_ros2 from the mapping_localization_launch package to handle LIDAR-based localization. It launch the lidar_path_to_odom pkg that converts LIDAR-detected paths into odometry information. waypoints_loader from waypoints_niagara_loader is used to manage the loading of navigation waypoints. Additionally, an rviz_node from the rviz2 package is configured to launch the RVIZ visualization tool. 
+
 ```bash
 source install/setup.bash
 ros2 launch sdv_launch localization.launch.py
 ```
 
  ## Control Launcher 
+ This launch starts by launching the stanley_controller from the sdv_control package, which manages the vehicle's steering and navigation algorithms using the Stanley method. There's also a setup for the can_controller from the sdv_can package, intended to manage CAN bus devices. The TimerAction is configured to delay the launch of the can_controller by 3 seconds.
 ```bash
 source install/setup.bash
 ros2 launch sdv_launch control.launch.py
