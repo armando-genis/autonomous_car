@@ -103,6 +103,7 @@ src/
     git clone https://github.com/TixiaoShan/LIO-SAM.git
     cd LIO-SAM/
     git checkout ros2
+    cd ..
 
     #ndt opm ros2
     git clone https://github.com/rsasaki0109/ndt_omp_ros2
