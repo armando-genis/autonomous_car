@@ -136,16 +136,10 @@ source /opt/ros/humble/setup.bash #for ro2 humble
 source install/setup.bash
 ```
 
-## Creation of waypoints
-Waypoints are generated based on the data received from the **/odom** topic type `nav_msgs::msg::odometry`. The **interval_** variable, expressed in meters, determines the distance between each waypoint. By adjusting the value of **interval_**,the spacing of the waypoints will change. Additionally, it is important to update the **file_path_** variable to specify the location where the waypoint data should be saved. The output topics, to visualize the creation of the path, of this package are **/waypoints** and **/waypoints_info** type `visualization_msgs::msg::MarkerArray`. 
-
-```bash
-colcon build --packages-select waypoints_niagara_creator
-source install/setup.bash
-ros2 launch waypoints_niagara_creator waypoints.launch.py
-```
-
  ## Sensors Launcher 
+![alt text](https://github.com/armando-genis/autonomous_car/blob/main/imgs/sensors.png?raw=true)
+
+
  This launch includes the vectornav launch file from the sensors_launch package, which is responsible for initiating and configuring the VectorNav sensors. The velodyne launch configuration from the same package is used to start and set up the Velodyne VLP32C LIDAR sensor. Additionally, the lidar_imu_sync package's launch file is called to synchronize LIDAR and IMU data, facilitating more accurate localization and mapping. Also, the urdf_sdv is launched from the sdv_robot_description package, which display the robot's URDF in a visualization environment.
  
 ```bash
@@ -154,6 +148,8 @@ ros2 launch sdv_launch sensors.launch.py
 ```
 
  ## Localization Launcher 
+![alt text](https://github.com/armando-genis/autonomous_car/blob/main/imgs/mapping.png?raw=true)
+
  This launch configuration sets up several components for navigation and visualization. It initializes lidar_localization_ros2 from the mapping_localization_launch package to handle LIDAR-based localization. It launch the lidar_path_to_odom pkg that converts LIDAR-detected paths into odometry information. waypoints_loader from waypoints_niagara_loader is used to manage the loading of navigation waypoints. Additionally, an rviz_node from the rviz2 package is configured to launch the RVIZ visualization tool. 
 
 ```bash
@@ -161,7 +157,21 @@ source install/setup.bash
 ros2 launch sdv_launch localization.launch.py
 ```
 
+## Creation of waypoints
+![alt text](https://github.com/armando-genis/autonomous_car/blob/main/imgs/waypoints.png?raw=true)
+
+Waypoints are generated based on the data received from the **/odom** topic type `nav_msgs::msg::odometry`. The **interval_** variable, expressed in meters, determines the distance between each waypoint. By adjusting the value of **interval_**,the spacing of the waypoints will change. Additionally, it is important to update the **file_path_** variable to specify the location where the waypoint data should be saved. The output topics, to visualize the creation of the path, of this package are **/waypoints** and **/waypoints_info** type `visualization_msgs::msg::MarkerArray`. 
+
+```bash
+colcon build --packages-select waypoints_niagara_creator
+source install/setup.bash
+ros2 launch waypoints_niagara_creator waypoints.launch.py
+```
+
+
  ## Control Launcher 
+![alt text](https://github.com/armando-genis/autonomous_car/blob/main/imgs/control.png?raw=true)
+
  This launch starts by launching the stanley_controller from the sdv_control package, which manages the vehicle's steering and navigation algorithms using the Stanley method. There's also a setup for the can_controller from the sdv_can package, intended to manage CAN bus devices. The TimerAction is configured to delay the launch of the can_controller by 3 seconds.
 ```bash
 source install/setup.bash
