@@ -273,11 +273,11 @@ void ObjectDetection::pointCloudCallback(const sensor_msgs::msg::PointCloud2::Sh
         // Proceed with further processing only if valid data is present
         if (!cloud_clusters.empty()) {
 
-            box3dcreation(std::move(cloud_clusters), msg->header);
+            // box3dcreation(std::move(cloud_clusters), msg->header);
 
             convex_hull(std::move(cloud_clusters));
 
-            RCLCPP_INFO(this->get_logger(), "Number of clusters: %zu", cloud_clusters.size());
+            // RCLCPP_INFO(this->get_logger(), "Number of clusters: %zu", cloud_clusters.size());
 
             check_zones_all_points_version2(std::move(cloud_clusters));
 
@@ -767,7 +767,7 @@ void ObjectDetection::convex_hull(std::vector<pcl::PointCloud<pcl::PointXYZ>::Pt
             obstacle_msg.cluster_points.push_back(point_array_msg);
         }
 
-        RCLCPP_INFO(this->get_logger(), "Hull size: %ld",  hull_vector.size());
+        // RCLCPP_INFO(this->get_logger(), "Hull size: %ld",  hull_vector.size());
 
         obstacle_data_publisher_->publish(obstacle_msg);
 
