@@ -37,11 +37,16 @@ class ObstacleDetector
   virtual ~ObstacleDetector();
 
   // ****************** Detection ***********************
+
+  typename pcl::PointCloud<PointT>::Ptr filterCloud(const typename pcl::PointCloud<PointT>::ConstPtr& cloud, const float filter_res, const Eigen::Vector4f& min_pt, const Eigen::Vector4f& max_pt);
   
+  std::pair<typename pcl::PointCloud<PointT>::Ptr, typename pcl::PointCloud<PointT>::Ptr> segmentPlane(const typename pcl::PointCloud<PointT>::ConstPtr& cloud, const int max_iterations, const float distance_thresh);
+
   std::vector<typename pcl::PointCloud<PointT>::Ptr> clustering(const typename pcl::PointCloud<PointT>::ConstPtr& cloud, const float cluster_tolerance, const int min_size, const int max_size);
-  std::vector<typename pcl::PointCloud<PointT>::Ptr> clustering_v2(const typename pcl::PointCloud<PointT>::ConstPtr& cloud, const float cluster_tolerance, const int min_size, const int max_size, const bool use_height);
 
+  Box axisAlignedBoundingBox(const typename pcl::PointCloud<PointT>::ConstPtr& cluster, const int id);
 
+  Box pcaBoundingBox(typename pcl::PointCloud<PointT>::Ptr& cluster, const int id);
 
   // ****************** Tracking ***********************
   void obstacleTracking(const std::vector<Box>& prev_boxes, std::vector<Box>& curr_boxes, const float displacement_thresh, const float iou_thresh);
@@ -77,7 +82,51 @@ ObstacleDetector<PointT>::ObstacleDetector() {}
 template <typename PointT>
 ObstacleDetector<PointT>::~ObstacleDetector() {}
 
+template <typename PointT>
+typename pcl::PointCloud<PointT>::Ptr ObstacleDetector<PointT>::filterCloud(const typename pcl::PointCloud<PointT>::ConstPtr& cloud, const float filter_res, const Eigen::Vector4f& min_pt, const Eigen::Vector4f& max_pt)
+{
+  // Time segmentation process
+  // const auto start_time = std::chrono::steady_clock::now();
 
+  // Create the filtering object: downsample the dataset using a leaf size
+  pcl::VoxelGrid<PointT> vg;
+  typename pcl::PointCloud<PointT>::Ptr cloud_filtered(new pcl::PointCloud<PointT>);
+  vg.setInputCloud(cloud);
+  vg.setLeafSize(filter_res, filter_res, filter_res);
+  vg.filter(*cloud_filtered);
+
+  // Cropping the ROI
+  typename pcl::PointCloud<PointT>::Ptr cloud_roi(new pcl::PointCloud<PointT>);
+  pcl::CropBox<PointT> region(true);
+  region.setMin(min_pt);
+  region.setMax(max_pt);
+  region.setInputCloud(cloud_filtered);
+  region.filter(*cloud_roi);
+
+  // Removing the car roof region
+  std::vector<int> indices;
+  pcl::CropBox<PointT> roof(true);
+  roof.setMin(Eigen::Vector4f(-1.5, -1.7, -1, 1));
+  roof.setMax(Eigen::Vector4f(2.6, 1.7, -0.4, 1));
+  roof.setInputCloud(cloud_roi);
+  roof.filter(indices);
+
+  pcl::PointIndices::Ptr inliers(new pcl::PointIndices);
+  for (auto& point : indices)
+    inliers->indices.push_back(point);
+
+  pcl::ExtractIndices<PointT> extract;
+  extract.setInputCloud(cloud_roi);
+  extract.setIndices(inliers);
+  extract.setNegative(true);
+  extract.filter(*cloud_roi);
+
+  // const auto end_time = std::chrono::steady_clock::now();
+  // const auto elapsed_time = std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time);
+  // std::cout << "filtering took " << elapsed_time.count() << " milliseconds" << std::endl;
+
+  return cloud_roi;
+}
 
 template <typename PointT>
 std::pair<typename pcl::PointCloud<PointT>::Ptr, typename pcl::PointCloud<PointT>::Ptr> ObstacleDetector<PointT>::separateClouds(const pcl::PointIndices::ConstPtr& inliers, const typename pcl::PointCloud<PointT>::ConstPtr& cloud)
@@ -99,6 +148,38 @@ std::pair<typename pcl::PointCloud<PointT>::Ptr, typename pcl::PointCloud<PointT
   extract.filter(*obstacle_cloud);
 
   return std::pair<typename pcl::PointCloud<PointT>::Ptr, typename pcl::PointCloud<PointT>::Ptr>(obstacle_cloud, ground_cloud);
+}
+
+template <typename PointT>
+std::pair<typename pcl::PointCloud<PointT>::Ptr, typename pcl::PointCloud<PointT>::Ptr> ObstacleDetector<PointT>::segmentPlane(const typename pcl::PointCloud<PointT>::ConstPtr& cloud, const int max_iterations, const float distance_thresh)
+{
+  // Time segmentation process
+  // const auto start_time = std::chrono::steady_clock::now();
+
+  // Find inliers for the cloud.
+  pcl::SACSegmentation<PointT> seg;
+  pcl::PointIndices::Ptr inliers{new pcl::PointIndices};
+  pcl::ModelCoefficients::Ptr coefficients(new pcl::ModelCoefficients);
+
+  seg.setOptimizeCoefficients(true);
+  seg.setModelType(pcl::SACMODEL_PLANE);
+  seg.setMethodType(pcl::SAC_RANSAC);
+  seg.setMaxIterations(max_iterations);
+  seg.setDistanceThreshold(distance_thresh);
+
+  // Segment the largest planar component from the input cloud
+  seg.setInputCloud(cloud);
+  seg.segment(*inliers, *coefficients);
+  if (inliers->indices.empty())
+  {
+    std::cout << "Could not estimate a planar model for the given dataset." << std::endl;
+  }
+
+  // const auto end_time = std::chrono::steady_clock::now();
+  // const auto elapsed_time = std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time);
+  // std::cout << "plane segmentation took " << elapsed_time.count() << " milliseconds" << std::endl;
+
+  return separateClouds(inliers, cloud);
 }
 
 template <typename PointT>
@@ -143,61 +224,56 @@ std::vector<typename pcl::PointCloud<PointT>::Ptr> ObstacleDetector<PointT>::clu
   return clusters;
 }
 
+template <typename PointT>
+Box ObstacleDetector<PointT>::axisAlignedBoundingBox(const typename pcl::PointCloud<PointT>::ConstPtr& cluster, const int id)
+{
+  // Find bounding box for one of the clusters
+  PointT min_pt, max_pt;
+  pcl::getMinMax3D(*cluster, min_pt, max_pt);
+  
+  const Eigen::Vector3f position((max_pt.x + min_pt.x)/2, (max_pt.y + min_pt.y)/2, (max_pt.z + min_pt.z)/2);
+  const Eigen::Vector3f dimension((max_pt.x - min_pt.x), (max_pt.y - min_pt.y), (max_pt.z - min_pt.z));
 
+  return Box(id, position, dimension);
+}
 
 template <typename PointT>
-std::vector<typename pcl::PointCloud<PointT>::Ptr> ObstacleDetector<PointT>::clustering_v2(const typename pcl::PointCloud<PointT>::ConstPtr& cloud, const float cluster_tolerance, const int min_size, const int max_size, const bool use_height)
+Box ObstacleDetector<PointT>::pcaBoundingBox(typename pcl::PointCloud<PointT>::Ptr& cluster, const int id)
 {
-  // Time clustering process
-  // const auto start_time = std::chrono::steady_clock::now();
+  // Compute the bounding box height (to be used later for recreating the box)
+  PointT min_pt, max_pt;
+  pcl::getMinMax3D(*cluster, min_pt, max_pt);
+  const float box_height = max_pt.z - min_pt.z;
+  const float box_z = (max_pt.z + min_pt.z)/2;
 
-  // Optionally convert to 2D point cloud
-  typename pcl::PointCloud<PointT>::Ptr converted_cloud(new pcl::PointCloud<PointT>);
-  if (!use_height) {
-      for (const auto& point : cloud->points) {
-          PointT point2d;
-          point2d.x = point.x;
-          point2d.y = point.y;
-          point2d.z = 0.0; // Set z to 0 to project into 2D
-          converted_cloud->push_back(point2d);
-      }
-  } else {
-      converted_cloud = std::const_pointer_cast<pcl::PointCloud<PointT>>(cloud);
+  // Compute the cluster centroid 
+  Eigen::Vector4f pca_centroid;
+  pcl::compute3DCentroid(*cluster, pca_centroid);
+
+  // Squash the cluster to x-y plane with z = centroid z 
+  for (size_t i = 0; i < cluster->size(); ++i)
+  {
+    cluster->points[i].z = pca_centroid(2);
   }
 
-  // Create KdTree for clustering
-  typename pcl::search::KdTree<PointT>::Ptr tree(new pcl::search::KdTree<PointT>);
-  tree->setInputCloud(converted_cloud);
+  // Compute principal directions & Transform the original cloud to PCA coordinates
+  pcl::PointCloud<pcl::PointXYZ>::Ptr pca_projected_cloud(new pcl::PointCloud<pcl::PointXYZ>);
+  pcl::PCA<pcl::PointXYZ> pca;
+  pca.setInputCloud(cluster);
+  pca.project(*cluster, *pca_projected_cloud);
+  
+  const auto eigen_vectors = pca.getEigenVectors();
 
-  // Perform Euclidean clustering
-  std::vector<pcl::PointIndices> cluster_indices;
-  pcl::EuclideanClusterExtraction<PointT> ec;
-  ec.setClusterTolerance(cluster_tolerance);
-  ec.setMinClusterSize(min_size);
-  ec.setMaxClusterSize(max_size);
-  ec.setSearchMethod(tree);
-  ec.setInputCloud(converted_cloud);
-  ec.extract(cluster_indices);
+  // Get the minimum and maximum points of the transformed cloud.
+  pcl::getMinMax3D(*pca_projected_cloud, min_pt, max_pt);
+  const Eigen::Vector3f meanDiagonal = 0.5f * (max_pt.getVector3fMap() + min_pt.getVector3fMap());
 
-  std::vector<typename pcl::PointCloud<PointT>::Ptr> clusters;
-  for (const auto& getIndices : cluster_indices) {
-      typename pcl::PointCloud<PointT>::Ptr cluster(new pcl::PointCloud<PointT>);
-      for (auto& index : getIndices.indices) {
-          cluster->points.push_back(converted_cloud->points[index]);
-      }
-      cluster->width = cluster->points.size();
-      cluster->height = 1;
-      cluster->is_dense = true;
-      clusters.push_back(cluster);
-  }
+  // Final transform
+  const Eigen::Quaternionf quaternion(eigen_vectors); // Quaternions are a way to do rotations https://www.youtube.com/watch?v=mHVwd8gYLnI
+  const Eigen::Vector3f position = eigen_vectors * meanDiagonal + pca_centroid.head<3>();
+  const Eigen::Vector3f dimension((max_pt.x - min_pt.x), (max_pt.y - min_pt.y), box_height);
 
-
-
-  // const auto end_time = std::chrono::steady_clock::now();
-  // const auto elapsed_time = std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time);
-  // std::cout << "clustering took " << elapsed_time.count() << " milliseconds and found " << clusters.size() << " clusters" << std::endl;
-
-  return clusters;
+  return Box(id, position, dimension, quaternion);
 }
 
 // ************************* Tracking ***************************

@@ -4,7 +4,6 @@
   <!-- =============== Link & Joint =============== -->
   <!-- Base Footprint -->
 
-
   <xacro:include filename="$(find sdv_robot_description)/urdf/wheels_sdv.xacro" />
 
 

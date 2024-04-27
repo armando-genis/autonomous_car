@@ -1,0 +1,42 @@
+<?xml version="1.0" ?>
+
+<robot name="dasautonomeauto" xmlns:xacro="http://www.ros.org/wiki/xacro">
+    <!-- =============== Link & Joint =============== -->
+    <!-- Base Footprint -->
+
+
+    <!-- Robot mechanical and motor parameters -->
+    <xacro:property name="PI" value="3.1415926535897931"/>
+    <xacro:property name="wheel_width" value="0.175" />
+    <xacro:property name="clearance" value="${0.3/2.0}" />
+
+    <!--  BASE FOOTPRINT  -->
+    <link name="base_footprint"/>
+    <joint name="base_link_joint" type="fixed">
+        <origin rpy="0 0 0" xyz="0 0 -0.1"/>
+        <parent link="chassis_link"/>
+        <child link="base_footprint"/>
+    </joint>
+
+    <link name="chassis_link">
+        <visual>
+            <origin xyz="0 0 0" rpy="0 0 -1.5708" />
+            <geometry>
+            <mesh filename="file://$(find sdv_robot_description)/meshes/hooke.dae" scale="0.001 0.001 0.001" />
+            </geometry>
+            <material name="Gray">
+            <color rgba="1.0 1.0 1.0 1.0"/>
+            </material>
+        </visual>
+    </link>
+
+
+  <link name="rslidar"/>
+
+  <joint name="rslidar_base_mount_joint" type="fixed">
+    <origin xyz="0 0 1.2" rpy="0 0 0" />
+    <parent link="chassis_link"/>
+    <child link="rslidar"/>
+  </joint>
+
+</robot>

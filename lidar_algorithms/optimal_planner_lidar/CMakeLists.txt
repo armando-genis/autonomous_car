@@ -16,6 +16,8 @@ find_package(tf2_ros REQUIRED)
 find_package(tf2_geometry_msgs REQUIRED)
 find_package(lidar_msgs REQUIRED)
 find_package(nav_msgs REQUIRED)
+find_package(visualization_msgs REQUIRED)
+
 
 
 
@@ -45,9 +47,9 @@ if(BUILD_TESTING)
   ament_lint_auto_find_test_dependencies()
 endif()
 
-add_executable(lidar_planner src/optimalPlanner.cpp)
+add_executable(lidar_planner src/optimalPlanner.cpp src/CubicSpline1D.cpp)
 
-ament_target_dependencies(lidar_planner rclcpp std_msgs pcl_conversions sensor_msgs message_filters tf2 tf2_ros tf2_geometry_msgs lidar_msgs nav_msgs)
+ament_target_dependencies(lidar_planner rclcpp std_msgs pcl_conversions sensor_msgs message_filters tf2 tf2_ros tf2_geometry_msgs lidar_msgs nav_msgs visualization_msgs)
 target_link_libraries(lidar_planner Eigen3::Eigen)
 target_link_libraries(lidar_planner ${OpenCV_LIBS})
 

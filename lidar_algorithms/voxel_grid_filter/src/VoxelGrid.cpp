@@ -38,12 +38,12 @@ private:
     
     // ROI boundaries
     // The velodyne is mounted on the car with a bad orientation, so the x is the y axis. 
-    double roi_max_x_ = 5.0; //FRONT THE CAR
-    double roi_max_y_ = 20.0;  //LEFT THE CAR
-    double roi_max_z_ = 1.0; //UP THE VELODYNE
+    double roi_max_x_ = 20.0; //FRONT THE CAR
+    double roi_max_y_ = 6.0;  //LEFT THE CAR
+    double roi_max_z_ = 0.5; //UP THE VELODYNE
 
-    double roi_min_x_ = -5.0; //RIGHT THE CAR 
-    double roi_min_y_ = -0.15; //BACK THE CAR
+    double roi_min_x_ = -1.0; //RIGHT THE CAR 
+    double roi_min_y_ = -6.0; //BACK THE CAR
     double roi_min_z_ = -2.5; //DOWN THE VELODYNE
 
     Eigen::Vector4f ROI_MAX_POINT, ROI_MIN_POINT;
@@ -64,7 +64,9 @@ public:
 
 VoxelGrid::VoxelGrid(/* args */): Node("voxel_grid_node")
 {
-    sub_ = this->create_subscription<sensor_msgs::msg::PointCloud2>("/velodyne_points", 10, std::bind(&VoxelGrid::pointCloudCallback, this, std::placeholders::_1));
+    sub_ = this->create_subscription<sensor_msgs::msg::PointCloud2>("/rslidar_points", 10, std::bind(&VoxelGrid::pointCloudCallback, this, std::placeholders::_1));
+    // sub_ = this->create_subscription<sensor_msgs::msg::PointCloud2>("/velodyne_points", 10, std::bind(&VoxelGrid::pointCloudCallback, this, std::placeholders::_1));
+
 
     // down_sampling_pub_ = this->create_publisher<sensor_msgs::msg::PointCloud2>("points_down_sampling", 10);
     roi_sampling_pub_ = this->create_publisher<sensor_msgs::msg::PointCloud2>("points_roi", 10);

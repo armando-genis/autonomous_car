@@ -11,6 +11,12 @@
 #include <tf2_ros/transform_listener.h>
 #include <lidar_msgs/msg/obstacle_data.hpp>
 #include <nav_msgs/msg/occupancy_grid.hpp>
+#include <nav_msgs/msg/path.hpp>
+#include <std_msgs/msg/float64.hpp>
+#include <visualization_msgs/msg/marker_array.hpp>
+#include <visualization_msgs/msg/marker.hpp>
+
+
 
 // PCL
 #include <pcl/point_types.h>
@@ -43,6 +49,9 @@
 
 using namespace std;
 
+#include "CubicSpline1D.h"
+
+
 // nav_msgs/OccupancyGrid
 
 class optimalPlanner : public rclcpp::Node
@@ -50,13 +59,32 @@ class optimalPlanner : public rclcpp::Node
 private:
     vector<std::vector<geometry_msgs::msg::Point>> hull_vector;
 
+    static Eigen::Vector3d bbox_size();
+
+    double yaw_car = 0.0;
+    double turning_radius = 3.0;
+    double num_points = 13;
+    double track_car = 1;
+
+    Eigen::MatrixXd car_steering_zone; 
+
     /* data */
     void obstacleDataCallback(const lidar_msgs::msg::ObstacleData::SharedPtr msg);
     void publishOccupancyGrid();
+
+
+    vector<std::pair<double, double>> calculate_trajectory(double yaw, double turning_radius, int num_points);
+    void yawCarCallback(const std_msgs::msg::Float64::SharedPtr msg);
+    void line_steering_wheels_calculation();
+
     // Subscriber & Publisher
     rclcpp::Subscription<lidar_msgs::msg::ObstacleData>::SharedPtr obstacle_data_sub_;
     rclcpp::Publisher<nav_msgs::msg::OccupancyGrid>::SharedPtr occupancy_grid_pub_;
+    rclcpp::Publisher<nav_msgs::msg::Path>::SharedPtr lane_publisher_;
+    rclcpp::Subscription<std_msgs::msg::Float64>::SharedPtr yaw_car_sub_;
+    rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr lane_steering_publisher_;
 
+    
 
 public:
     optimalPlanner(/* args */);
@@ -68,6 +96,14 @@ optimalPlanner::optimalPlanner(/* args */): Node("optimal_planner_node")
 
     obstacle_data_sub_ = this->create_subscription<lidar_msgs::msg::ObstacleData>("/obstacle_data",10,std::bind(&optimalPlanner::obstacleDataCallback, this, std::placeholders::_1));
     occupancy_grid_pub_ = this->create_publisher<nav_msgs::msg::OccupancyGrid>("/occupancy_grid", 10);
+    yaw_car_sub_ = this->create_subscription<std_msgs::msg::Float64>("/yaw_car", 10, std::bind(&optimalPlanner::yawCarCallback, this, std::placeholders::_1));
+
+    lane_publisher_ = this->create_publisher<nav_msgs::msg::Path>("lane", 10);
+
+    lane_steering_publisher_ = this->create_publisher<visualization_msgs::msg::Marker>("steering_lane", 10);
+
+
+
 
     RCLCPP_INFO(this->get_logger(), "\033[1;32m----> optimal_planner_node initialized.\033[0m");
 
@@ -110,16 +146,15 @@ void optimalPlanner::obstacleDataCallback(const lidar_msgs::msg::ObstacleData::S
 
       RCLCPP_INFO(this->get_logger(),"\033[1;31m----> Planar Segmentation callback finished in %ld ms. \033[0m", execution_time);
     
-    
 }
 
 
 void optimalPlanner::publishOccupancyGrid()
 {
     nav_msgs::msg::OccupancyGrid grid;
-    grid.header.frame_id = "base_link";  // Or whatever frame is appropriate
+    grid.header.frame_id = "base_footprint";  // Or whatever frame is appropriate
     grid.info.resolution = 0.1;  // in meters
-    grid.info.width = 100;  // grid width
+    grid.info.width = 150;  // grid width
     grid.info.height = 100;  // grid height
     grid.info.origin.position.x = -5.0;  // Center the origin of the grid
     grid.info.origin.position.y = -5.0;  // Center the origin of the grid
@@ -178,7 +213,7 @@ void optimalPlanner::publishOccupancyGrid()
     for (const auto& cluster : hull_vector) {
         for (size_t i = 0; i < cluster.size(); ++i) {
             auto& current_point = cluster[i];
-            auto& next_point = cluster[(i + 1) % cluster.size()]; // Wrap around to create a closed loop
+            auto& next_point = cluster[(i + 1) % cluster.size()];
 
             // Convert point coordinates to grid indices
             int x0 = static_cast<int>((current_point.x - grid.info.origin.position.x) / grid.info.resolution);
@@ -193,7 +228,166 @@ void optimalPlanner::publishOccupancyGrid()
 
     // Publish the occupancy grid
     occupancy_grid_pub_->publish(grid);
+
+
+    line_steering_wheels_calculation();
+
+
 }
+
+
+vector<pair<double, double>> optimalPlanner::calculate_trajectory(double steering_angle, double wheelbase, int num_points)
+{
+    vector<pair<double, double>> path;
+
+    if (fabs(steering_angle) < 1e-6) {
+        double step_length = 0.5; 
+        for (int i = 0; i < num_points; ++i) {
+            path.push_back(make_pair(i * step_length, 0.0));
+        }
+    } else {
+        double radius = wheelbase / tan(fabs(steering_angle));
+        double circumference = 2 * M_PI * radius; 
+        double arc_length = circumference / 4; 
+        double angular_step = M_PI / 2 / num_points; 
+
+        double theta = 0; // Starting angle
+        for (int i = 0; i <= num_points; ++i) {
+            
+            double x = radius * sin(theta);
+            double y = radius * (1 - cos(theta));
+
+            if (steering_angle < 0) {
+                y = -y; 
+            }
+
+            path.push_back(make_pair(x, y));
+            theta += angular_step;
+        }
+    }
+
+    return path;
+}
+
+
+void optimalPlanner::line_steering_wheels_calculation(){
+
+
+    // Calculate the trajectory of the car in base of the yaw
+    vector<pair<double, double>> trajectory = calculate_trajectory(yaw_car, turning_radius, num_points);
+
+    std::vector<double> t_values(trajectory.size());
+    std::iota(t_values.begin(), t_values.end(), 0);  // fills t_values with increasing values starting from  0
+
+    std::vector<double> x;
+    std::vector<double> y;
+
+    for (const auto& point : trajectory)
+    {
+        x.push_back(point.first);
+        y.push_back(point.second);
+    }
+
+
+    CubicSpline1D spline_x(t_values, x);
+    CubicSpline1D spline_y(t_values, y);
+
+    // Interpolate waypoints using the t_values range
+    std::vector<double> x_new, y_new;
+    for (double t = 0; t < t_values.size() - 1; t += 0.1) {
+        x_new.push_back(spline_x.calc_der0(t));
+        y_new.push_back(spline_y.calc_der0(t));
+    }
+
+    // Publish the lane
+    nav_msgs::msg::Path path;
+    path.header.frame_id = "base_footprint";
+    path.header.stamp = this->now();
+
+    for (size_t i = 0; i < x_new.size(); ++i) {
+        geometry_msgs::msg::PoseStamped pose;
+        pose.pose.position.x = x_new[i];
+        pose.pose.position.y = y_new[i];
+        path.poses.push_back(pose);
+    }
+
+    lane_publisher_->publish(path);
+
+    // Prepare Marker for visualization
+    visualization_msgs::msg::Marker lane_maker;
+    lane_maker.header.frame_id = "base_footprint";
+    lane_maker.header.stamp = this->now();
+
+    lane_maker.ns = "vehicle_path";
+    lane_maker.id = 0;
+    lane_maker.type = visualization_msgs::msg::Marker::LINE_STRIP;
+    lane_maker.action = visualization_msgs::msg::Marker::ADD;
+    lane_maker.scale.x = 0.1;  
+    lane_maker.color.a = 1.0;  
+    lane_maker.color.r = 1.0;  
+    lane_maker.color.g = 0.0;  
+    lane_maker.color.b = 0.0;  
+
+    car_steering_zone.resize(x_new.size() * 2, 2);
+
+    size_t matrix_index = 0;
+
+    // Publish lane with the track of the car 
+    for (size_t i = 0; i < x_new.size(); ++i) 
+    {
+        double angle = atan2(y_new[i] - y_new[std::max(int(i) - 1, 0)], x_new[i] - x_new[std::max(int(i) - 1, 0)]);
+        double offset_x = track_car * cos(angle + M_PI / 2);
+        double offset_y = track_car * sin(angle + M_PI / 2);
+
+        geometry_msgs::msg::Point left_point;
+
+        left_point.x = x_new[i] + offset_x;
+        left_point.y = y_new[i] + offset_y;
+
+        car_steering_zone(matrix_index, 0) = left_point.x;
+        car_steering_zone(matrix_index++, 1) = left_point.y;
+
+        lane_maker.points.push_back(left_point);
+
+    }
+
+    //  invertion of the right side to math with the left side  
+    for (size_t i = x_new.size(); i-- > 0; ) 
+    {
+        int previous_index = (i > 0) ? (i - 1) : 0;
+        double angle = atan2(y_new[i] - y_new[previous_index], x_new[i] - x_new[previous_index]);
+        double offset_x = track_car * cos(angle + M_PI / 2);
+        double offset_y = track_car * sin(angle + M_PI / 2);
+
+        geometry_msgs::msg::Point right_point;
+
+        right_point.x = x_new[i] - offset_x;
+        right_point.y = y_new[i] - offset_y;
+
+        car_steering_zone(matrix_index, 0) = right_point.x;
+        car_steering_zone(matrix_index++, 1) = right_point.y;
+
+        lane_maker.points.push_back(right_point);
+    }
+
+    lane_maker.points.push_back(lane_maker.points.front()); // Close the loop
+
+    lane_steering_publisher_->publish(lane_maker);
+
+}
+
+
+void optimalPlanner::yawCarCallback(const std_msgs::msg::Float64::SharedPtr msg)
+{
+    // RCLCPP_INFO(this->get_logger(), "Yaw Car: %f", msg->data);
+    yaw_car = msg->data;
+}
+
+Eigen::Vector3d optimalPlanner::bbox_size()
+{
+    // distance between front and rear axles, distance from C to front/rear axle
+return Eigen::Vector3d{1.8, 2.0, 2.0};
+};
 
 
 

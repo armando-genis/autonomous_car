@@ -137,6 +137,9 @@ private:
 
     vector<std::vector<geometry_msgs::msg::Point>> hull_vector;
 
+    vector<std::vector<geometry_msgs::msg::Point>> prev_hull_vector;
+
+
 
 
     std::shared_ptr<lidar_obstacle_detector::ObstacleDetector<pcl::PointXYZ>> obstacle_detector;
@@ -263,9 +266,7 @@ void ObjectDetection::pointCloudCallback(const sensor_msgs::msg::PointCloud2::Sh
 
     try {
 
-
         // RCLCPP_INFO(this->get_logger(), "Number of points in the input cloud: %zu", input_cloud->size());
-
 
         // auto segmented_clouds = obstacle_detector->segmentPlane(input_cloud, 100, GROUND_THRESHOLD);
         auto cloud_clusters = obstacle_detector->clustering(input_cloud, CLUSTER_THRESH, CLUSTER_MIN_SIZE, CLUSTER_MAX_SIZE);
@@ -279,9 +280,9 @@ void ObjectDetection::pointCloudCallback(const sensor_msgs::msg::PointCloud2::Sh
 
             // RCLCPP_INFO(this->get_logger(), "Number of clusters: %zu", cloud_clusters.size());
 
-            // check_zones_all_points_version2(std::move(cloud_clusters));
+            check_zones_all_points_version2(std::move(cloud_clusters));
 
-            // publish_zone(front_zone, front_zone_warning);
+            publish_zone(front_zone, front_zone_warning);
 
         }
     } catch (const std::exception& e) {
