@@ -29,9 +29,9 @@ class VoxelGrid : public rclcpp::Node
 {
 private:
     // voxelgrid resolution
-    float voxel_leaf_size_x_;
-    float voxel_leaf_size_y_;
-    float voxel_leaf_size_z_; 
+    float voxel_leaf_size_x_ = 0.0;
+    float voxel_leaf_size_y_ = 0.0;
+    float voxel_leaf_size_z_ = 0.0; 
 
     using PointCloudMsg = sensor_msgs::msg::PointCloud2;
     using PointCloudMsg2 = sensor_msgs::msg::PointCloud2;
@@ -39,15 +39,15 @@ private:
     
     // ROI boundaries
     // The velodyne is mounted on the car with a bad orientation, so the x is the y axis. 
-    double roi_max_x_; //FRONT THE CAR
-    double roi_max_y_;  //LEFT THE CAR
-    double roi_max_z_; //UP THE VELODYNE
+    double roi_max_x_ = 0.0; //FRONT THE CAR
+    double roi_max_y_ = 0.0;  //LEFT THE CAR
+    double roi_max_z_ = 0.0; //UP THE VELODYNE
 
-    double roi_min_x_; //RIGHT THE CAR 
-    double roi_min_y_; //BACK THE CAR
-    double roi_min_z_; //DOWN THE VELODYNE
+    double roi_min_x_ = 0.0; //RIGHT THE CAR 
+    double roi_min_y_ = 0.0; //BACK THE CAR
+    double roi_min_z_ = 0.0; //DOWN THE VELODYNE
 
-    bool voxel_condition;
+    bool voxel_condition = false;
 
     Eigen::Vector4f ROI_MAX_POINT, ROI_MIN_POINT;
 
@@ -65,20 +65,20 @@ public:
     ~VoxelGrid();
 };
 
-VoxelGrid::VoxelGrid(/* args */): Node("voxel_grid_node")
+VoxelGrid::VoxelGrid(/* args */): Node("voxel_grid_filter")
 {
 
-    this->declare_parameter("voxel_leaf_size_x", 0.1);
-    this->declare_parameter("voxel_leaf_size_y", 0.1);
-    this->declare_parameter("voxel_leaf_size_z", 0.1);
+    this->declare_parameter("voxel_leaf_size_x", double(0.0));
+    this->declare_parameter("voxel_leaf_size_y", double(0.0));
+    this->declare_parameter("voxel_leaf_size_z", double(0.0));
 
-    this->declare_parameter("roi_max_x", 20.0);
-    this->declare_parameter("roi_max_y", 6.0);
-    this->declare_parameter("roi_max_z", 0.5);
+    this->declare_parameter("roi_max_x_", double(0.0));
+    this->declare_parameter("roi_max_y_", double(0.0));
+    this->declare_parameter("roi_max_z_", double(0.0));
 
-    this->declare_parameter("roi_min_x", -1.0);
-    this->declare_parameter("roi_min_y", -6.0);
-    this->declare_parameter("roi_min_z", -2.5);
+    this->declare_parameter("roi_min_x_", double(0.0));
+    this->declare_parameter("roi_min_y_", double(0.0));
+    this->declare_parameter("roi_min_z_", double(0.0));
 
     this->declare_parameter("voxel_condition", false);
 
@@ -86,13 +86,13 @@ VoxelGrid::VoxelGrid(/* args */): Node("voxel_grid_node")
     this->get_parameter("voxel_leaf_size_y", voxel_leaf_size_y_);
     this->get_parameter("voxel_leaf_size_z", voxel_leaf_size_z_);
 
-    this->get_parameter("roi_max_x", roi_max_x_);
-    this->get_parameter("roi_max_y", roi_max_y_);
-    this->get_parameter("roi_max_z", roi_max_z_);
+    this->get_parameter("roi_max_x_", roi_max_x_);
+    this->get_parameter("roi_max_y_", roi_max_y_);
+    this->get_parameter("roi_max_z_", roi_max_z_);
 
-    this->get_parameter("roi_min_x", roi_min_x_);
-    this->get_parameter("roi_min_y", roi_min_y_);
-    this->get_parameter("roi_min_z", roi_min_z_);
+    this->get_parameter("roi_min_x_", roi_min_x_);
+    this->get_parameter("roi_min_y_", roi_min_y_);
+    this->get_parameter("roi_min_z_", roi_min_z_);
 
     this->get_parameter("voxel_condition", voxel_condition);
 

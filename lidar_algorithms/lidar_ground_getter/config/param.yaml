@@ -1,0 +1,3 @@
+lidar_ground_node:
+  ros__parameters:
+    treshold_ground_: 0.2
