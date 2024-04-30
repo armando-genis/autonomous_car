@@ -66,4 +66,8 @@ install(
   DESTINATION share/${PROJECT_NAME}
 )
 
+  message(=============================================================)
+  message("-- ROS Not Found. ROS Support is turned Off.")
+  message(=============================================================)
+
 ament_package()

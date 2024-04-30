@@ -677,12 +677,6 @@ void ObjectDetection::convex_hull(std::vector<pcl::PointCloud<pcl::PointXYZ>::Pt
     if (!cloud_clusters.empty())
     {
         
-        std_msgs::msg::Float32MultiArray clusters_points_array;
-        clusters_points_array.layout.dim.push_back(std_msgs::msg::MultiArrayDimension());
-        clusters_points_array.layout.dim[0].label = "cluster";
-        clusters_points_array.layout.dim[0].size = cloud_clusters.size();
-        clusters_points_array.layout.dim[0].stride = 1; 
-
         hull_vector.resize(cloud_clusters.size());
 
         int index = 0;  // Declare an index variable
@@ -723,10 +717,10 @@ void ObjectDetection::convex_hull(std::vector<pcl::PointCloud<pcl::PointXYZ>::Pt
                 hull_marker.header.frame_id = "base_footprint"; 
                 // hull_marker.header.stamp = this->get_clock()->now();
                 hull_marker.ns = "hull";
-                hull_marker.id = index;  // Use the index variable
+                hull_marker.id = index + 2000;  // Use the index variable
                 hull_marker.type = visualization_msgs::msg::Marker::LINE_STRIP;
                 hull_marker.action = visualization_msgs::msg::Marker::ADD;
-                hull_marker.scale.x = 0.15;
+                hull_marker.scale.x = 0.07;
 
                 hull_marker.color.r = 1.0;
                 hull_marker.color.g = 1.0;
@@ -767,7 +761,7 @@ void ObjectDetection::convex_hull(std::vector<pcl::PointCloud<pcl::PointXYZ>::Pt
             obstacle_msg.cluster_points.push_back(point_array_msg);
         }
 
-        // RCLCPP_INFO(this->get_logger(), "Hull size: %ld",  hull_vector.size());
+        RCLCPP_INFO(this->get_logger(), "Hull size: %ld",  hull_vector.size());
 
         obstacle_data_publisher_->publish(obstacle_msg);
 

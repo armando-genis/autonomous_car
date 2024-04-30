@@ -1,0 +1,15 @@
+voxel_grid_filter:
+  ros__parameters:
+    voxel_condition: false
+    voxel_leaf_size_x: 0.1
+    voxel_leaf_size_y: 0.1
+    voxel_leaf_size_z: 0.1
+    roi_max_x_: 20.0  #FRONT THE CAR
+    roi_max_y_: 6.0   #LEFT THE CAR
+    roi_max_z_: 0.5   #UP THE LIDAR
+    roi_min_x_: -1.0 #BACK THE CAR
+    roi_min_y_: -6.0  #RIGHT THE CAR
+    roi_min_z_: -2.5  #DOWN THE LIDAR
+
+
+

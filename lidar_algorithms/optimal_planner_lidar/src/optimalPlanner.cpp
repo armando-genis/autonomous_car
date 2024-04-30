@@ -16,8 +16,6 @@
 #include <visualization_msgs/msg/marker_array.hpp>
 #include <visualization_msgs/msg/marker.hpp>
 
-
-
 // PCL
 #include <pcl/point_types.h>
 #include <pcl/point_cloud.h>
@@ -59,6 +57,14 @@ class optimalPlanner : public rclcpp::Node
 private:
     vector<std::vector<geometry_msgs::msg::Point>> hull_vector;
 
+    vector<std::vector<geometry_msgs::msg::Point>> hull_vector_inflate;
+
+    vector<std::vector<geometry_msgs::msg::Point>> prev_hull_vector;
+
+
+
+
+    
     static Eigen::Vector3d bbox_size();
 
     double yaw_car = 0.0;
@@ -84,6 +90,10 @@ private:
     rclcpp::Subscription<std_msgs::msg::Float64>::SharedPtr yaw_car_sub_;
     rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr lane_steering_publisher_;
 
+
+    // rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr hull_publisher_inflated_;
+
+
     
 
 public:
@@ -95,18 +105,19 @@ optimalPlanner::optimalPlanner(/* args */): Node("optimal_planner_node")
 {
 
     obstacle_data_sub_ = this->create_subscription<lidar_msgs::msg::ObstacleData>("/obstacle_data",10,std::bind(&optimalPlanner::obstacleDataCallback, this, std::placeholders::_1));
+
     occupancy_grid_pub_ = this->create_publisher<nav_msgs::msg::OccupancyGrid>("/occupancy_grid", 10);
+
     yaw_car_sub_ = this->create_subscription<std_msgs::msg::Float64>("/yaw_car", 10, std::bind(&optimalPlanner::yawCarCallback, this, std::placeholders::_1));
 
     lane_publisher_ = this->create_publisher<nav_msgs::msg::Path>("lane", 10);
 
     lane_steering_publisher_ = this->create_publisher<visualization_msgs::msg::Marker>("steering_lane", 10);
 
-
+    // hull_publisher_inflated_ = this->create_publisher<visualization_msgs::msg::Marker>("hull_inflated", 10);
 
 
     RCLCPP_INFO(this->get_logger(), "\033[1;32m----> optimal_planner_node initialized.\033[0m");
-
 
 }
 
@@ -132,15 +143,43 @@ void optimalPlanner::obstacleDataCallback(const lidar_msgs::msg::ObstacleData::S
         hull_vector.push_back(cluster);
     }
 
-    for (size_t i = 0; i < hull_vector.size(); i++)
-    {
-        for (size_t j = 0; j < hull_vector[i].size(); j++)
-        {
-            RCLCPP_INFO(this->get_logger(), "Hull Vector [%d]: %f, %f", i, hull_vector[i][j].x, hull_vector[i][j].y);
-        }
-    }
+    // for (size_t i = 0; i < hull_vector.size(); i++)
+    // {
+    //     std::vector<geometry_msgs::msg::Point> hull_points;
+
+    //     for (size_t j = 0; j < hull_vector[i].size(); j++)
+    //     {
+    //         RCLCPP_INFO(this->get_logger(), "Hull Vector [%d]: %f, %f", i, hull_vector[i][j].x, hull_vector[i][j].y);
+
+    //         geometry_msgs::msg::Point p;
+    //         p.x = hull_vector[i][j].x;
+    //         p.y = hull_vector[i][j].y;
+    //         p.z = 0.0;
+    //         hull_points.push_back(p);
+    //     }
+
+    //     hull_points.push_back(hull_points.front()); 
+
+    //     // Publish the inflated hull
+    //     visualization_msgs::msg::Marker hull_marker;
+    //     hull_marker.header.frame_id = "base_footprint";
+    //     hull_marker.ns = "hull_inflated";
+    //     hull_marker.id = i + 2000;
+    //     hull_marker.type = visualization_msgs::msg::Marker::LINE_STRIP;
+    //     hull_marker.action = visualization_msgs::msg::Marker::ADD;
+    //     hull_marker.scale.x = 0.15;  
+    //     hull_marker.color.a = 1.0; 
+    //     hull_marker.color.r = 0.0;  
+    //     hull_marker.color.g = 1.0;  
+    //     hull_marker.color.b = 0.0;  
+    //     hull_marker.points = hull_points;
+
+    //     hull_publisher_inflated_->publish(hull_marker);
+    // }
 
     publishOccupancyGrid();
+
+    
 
     auto execution_time = std::chrono::duration_cast<std::chrono::milliseconds>( std::chrono::system_clock::now() - init_time) .count();
 
@@ -154,7 +193,7 @@ void optimalPlanner::publishOccupancyGrid()
     nav_msgs::msg::OccupancyGrid grid;
     grid.header.frame_id = "base_footprint";  // Or whatever frame is appropriate
     grid.info.resolution = 0.1;  // in meters
-    grid.info.width = 150;  // grid width
+    grid.info.width = 115;  // grid width
     grid.info.height = 100;  // grid height
     grid.info.origin.position.x = -5.0;  // Center the origin of the grid
     grid.info.origin.position.y = -5.0;  // Center the origin of the grid
@@ -210,8 +249,11 @@ void optimalPlanner::publishOccupancyGrid()
 
     // Convert each point in hull_vector to grid coordinates, draw lines and inflate
     int inflation_radius = 3; // Inflated radius in cells (30 cm)
-    for (const auto& cluster : hull_vector) {
-        for (size_t i = 0; i < cluster.size(); ++i) {
+    for (const auto& cluster : hull_vector) 
+    {
+
+        for (size_t i = 0; i < cluster.size(); ++i) 
+        {
             auto& current_point = cluster[i];
             auto& next_point = cluster[(i + 1) % cluster.size()];
 
@@ -223,6 +265,7 @@ void optimalPlanner::publishOccupancyGrid()
 
             // Draw inflated line between points
             draw_inflated_line(x0, y0, x1, y1, inflation_radius);
+            
         }
     }
 
@@ -312,7 +355,7 @@ void optimalPlanner::line_steering_wheels_calculation(){
     }
 
     lane_publisher_->publish(path);
-
+    
     // Prepare Marker for visualization
     visualization_msgs::msg::Marker lane_maker;
     lane_maker.header.frame_id = "base_footprint";
@@ -322,11 +365,13 @@ void optimalPlanner::line_steering_wheels_calculation(){
     lane_maker.id = 0;
     lane_maker.type = visualization_msgs::msg::Marker::LINE_STRIP;
     lane_maker.action = visualization_msgs::msg::Marker::ADD;
-    lane_maker.scale.x = 0.1;  
+    lane_maker.scale.x = 0.1;
+    lane_maker.scale.y = 0.5;
+    lane_maker.scale.z = 0.5; 
     lane_maker.color.a = 1.0;  
-    lane_maker.color.r = 1.0;  
-    lane_maker.color.g = 0.0;  
-    lane_maker.color.b = 0.0;  
+    lane_maker.color.r = 0.0;  
+    lane_maker.color.g = 0.35;  
+    lane_maker.color.b = 0.12;  
 
     car_steering_zone.resize(x_new.size() * 2, 2);
 

@@ -29,22 +29,25 @@ class VoxelGrid : public rclcpp::Node
 {
 private:
     // voxelgrid resolution
-    float voxel_leaf_size_x_ = 0.1;
-    float voxel_leaf_size_y_ = 0.1;
-    float voxel_leaf_size_z_ = 0.1; 
+    float voxel_leaf_size_x_;
+    float voxel_leaf_size_y_;
+    float voxel_leaf_size_z_; 
+
     using PointCloudMsg = sensor_msgs::msg::PointCloud2;
     using PointCloudMsg2 = sensor_msgs::msg::PointCloud2;
 
     
     // ROI boundaries
     // The velodyne is mounted on the car with a bad orientation, so the x is the y axis. 
-    double roi_max_x_ = 20.0; //FRONT THE CAR
-    double roi_max_y_ = 6.0;  //LEFT THE CAR
-    double roi_max_z_ = 0.5; //UP THE VELODYNE
+    double roi_max_x_; //FRONT THE CAR
+    double roi_max_y_;  //LEFT THE CAR
+    double roi_max_z_; //UP THE VELODYNE
 
-    double roi_min_x_ = -1.0; //RIGHT THE CAR 
-    double roi_min_y_ = -6.0; //BACK THE CAR
-    double roi_min_z_ = -2.5; //DOWN THE VELODYNE
+    double roi_min_x_; //RIGHT THE CAR 
+    double roi_min_y_; //BACK THE CAR
+    double roi_min_z_; //DOWN THE VELODYNE
+
+    bool voxel_condition;
 
     Eigen::Vector4f ROI_MAX_POINT, ROI_MIN_POINT;
 
@@ -64,6 +67,36 @@ public:
 
 VoxelGrid::VoxelGrid(/* args */): Node("voxel_grid_node")
 {
+
+    this->declare_parameter("voxel_leaf_size_x", 0.1);
+    this->declare_parameter("voxel_leaf_size_y", 0.1);
+    this->declare_parameter("voxel_leaf_size_z", 0.1);
+
+    this->declare_parameter("roi_max_x", 20.0);
+    this->declare_parameter("roi_max_y", 6.0);
+    this->declare_parameter("roi_max_z", 0.5);
+
+    this->declare_parameter("roi_min_x", -1.0);
+    this->declare_parameter("roi_min_y", -6.0);
+    this->declare_parameter("roi_min_z", -2.5);
+
+    this->declare_parameter("voxel_condition", false);
+
+    this->get_parameter("voxel_leaf_size_x", voxel_leaf_size_x_);
+    this->get_parameter("voxel_leaf_size_y", voxel_leaf_size_y_);
+    this->get_parameter("voxel_leaf_size_z", voxel_leaf_size_z_);
+
+    this->get_parameter("roi_max_x", roi_max_x_);
+    this->get_parameter("roi_max_y", roi_max_y_);
+    this->get_parameter("roi_max_z", roi_max_z_);
+
+    this->get_parameter("roi_min_x", roi_min_x_);
+    this->get_parameter("roi_min_y", roi_min_y_);
+    this->get_parameter("roi_min_z", roi_min_z_);
+
+    this->get_parameter("voxel_condition", voxel_condition);
+
+
     sub_ = this->create_subscription<sensor_msgs::msg::PointCloud2>("/rslidar_points", 10, std::bind(&VoxelGrid::pointCloudCallback, this, std::placeholders::_1));
     // sub_ = this->create_subscription<sensor_msgs::msg::PointCloud2>("/velodyne_points", 10, std::bind(&VoxelGrid::pointCloudCallback, this, std::placeholders::_1));
 
@@ -75,6 +108,21 @@ VoxelGrid::VoxelGrid(/* args */): Node("voxel_grid_node")
     ROI_MIN_POINT = Eigen::Vector4f(roi_min_x_, roi_min_y_, roi_min_z_, 1);
 
     RCLCPP_INFO(this->get_logger(), "\033[1;32m----> voxel_grid_node initialized.\033[0m");
+
+    RCLCPP_INFO(this->get_logger(), "\033[1;34m---->voxel_leaf_size_x: %f \033[0m", voxel_leaf_size_x_);
+    RCLCPP_INFO(this->get_logger(), "\033[1;34m---->voxel_leaf_size_y: %f \033[0m", voxel_leaf_size_y_);
+    RCLCPP_INFO(this->get_logger(), "\033[1;34m---->voxel_leaf_size_z: %f \033[0m", voxel_leaf_size_z_);
+
+    RCLCPP_INFO(this->get_logger(), "\033[1;34m---->roi_max_x: %f \033[0m", roi_max_x_);
+    RCLCPP_INFO(this->get_logger(), "\033[1;34m---->roi_max_y: %f \033[0m", roi_max_y_);
+    RCLCPP_INFO(this->get_logger(), "\033[1;34m---->roi_max_z: %f \033[0m", roi_max_z_);
+
+    RCLCPP_INFO(this->get_logger(), "\033[1;34m---->roi_min_x: %f \033[0m", roi_min_x_);
+    RCLCPP_INFO(this->get_logger(), "\033[1;34m---->roi_min_y: %f \033[0m", roi_min_y_);
+    RCLCPP_INFO(this->get_logger(), "\033[1;34m---->roi_min_z: %f \033[0m", roi_min_z_);
+
+    RCLCPP_INFO(this->get_logger(), "\033[1;34m---->voxel_condition: %d \033[0m", voxel_condition);
+
 
 }
 
@@ -161,19 +209,33 @@ void VoxelGrid::pointCloudCallback(const sensor_msgs::msg::PointCloud2::SharedPt
 
     // roi_sampling_pub_->publish(downsampled_cloud_msg_rio);
 
-    // create voxel grid object
-    pcl::VoxelGrid<pcl::PointXYZI> vg;
-    vg.setInputCloud(cloud_roi);
-    vg.setLeafSize(voxel_leaf_size_x_, voxel_leaf_size_y_, voxel_leaf_size_z_);
+    if(voxel_condition)
+    {
 
-    pcl::PointCloud<pcl::PointXYZI>::Ptr filtered_cloud(new pcl::PointCloud<pcl::PointXYZI>);
-    vg.filter(*filtered_cloud);
+        // create voxel grid object
+        pcl::VoxelGrid<pcl::PointXYZI> vg;
+        vg.setInputCloud(cloud_roi);
+        vg.setLeafSize(voxel_leaf_size_x_, voxel_leaf_size_y_, voxel_leaf_size_z_);
 
-    // convert back to ROS datatype
-    VoxelGrid::PointCloudMsg downsampled_cloud_msg;
-    pcl::toROSMsg(*filtered_cloud, downsampled_cloud_msg);
+        pcl::PointCloud<pcl::PointXYZI>::Ptr filtered_cloud(new pcl::PointCloud<pcl::PointXYZI>);
+        vg.filter(*filtered_cloud);
 
-    roi_sampling_pub_->publish(downsampled_cloud_msg);
+        // convert back to ROS datatype
+        VoxelGrid::PointCloudMsg downsampled_cloud_msg;
+        pcl::toROSMsg(*filtered_cloud, downsampled_cloud_msg);
+
+        roi_sampling_pub_->publish(downsampled_cloud_msg);
+
+    }  
+    else
+    {
+        VoxelGrid::PointCloudMsg2 downsampled_cloud_msg_rio;
+        pcl::toROSMsg(*cloud_roi, downsampled_cloud_msg_rio);
+
+        roi_sampling_pub_->publish(downsampled_cloud_msg_rio);
+    }
+
+
 
 }
 

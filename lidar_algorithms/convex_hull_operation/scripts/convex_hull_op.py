@@ -38,13 +38,22 @@ class PublisherNode(Node):
         # Clear the existing data
         self.hull_vectors.clear()
 
+        # Clear the plot
+        self.ax.clear()
+        self.ax.set_title('Hull Clusters')
+        self.ax.set_xlabel('x')
+        self.ax.set_ylabel('y')
+        # Set the axis limits
+        self.ax.set_xlim(-7, 7)  # Set x-axis limits from 0 to 15
+        self.ax.set_ylim(-3, 17)  # Set y-axis limits from 0 to 20
 
         # Process each PointArray in the received ObstacleData message
         for point_array in msg.cluster_points:
             x_vals = [point.x for point in point_array.points]
             y_vals = [point.y for point in point_array.points]
 
-
+            # Plot the points for this cluster
+            self.ax.plot(x_vals, y_vals, 'o-', label='Cluster')  # 'o-' for points connected by lines
 
         # Update plot legends and redraw
         self.ax.legend()
