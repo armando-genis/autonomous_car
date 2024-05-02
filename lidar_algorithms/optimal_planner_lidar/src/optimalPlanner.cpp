@@ -191,7 +191,7 @@ void optimalPlanner::obstacleDataCallback(const lidar_msgs::msg::ObstacleData::S
 void optimalPlanner::publishOccupancyGrid()
 {
     nav_msgs::msg::OccupancyGrid grid;
-    grid.header.frame_id = "base_footprint";  // Or whatever frame is appropriate
+    grid.header.frame_id = "base_link";  // Or whatever frame is appropriate
     grid.info.resolution = 0.1;  // in meters
     grid.info.width = 115;  // grid width
     grid.info.height = 100;  // grid height

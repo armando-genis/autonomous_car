@@ -9,6 +9,8 @@
 #include <visualization_msgs/msg/marker_array.hpp>
 #include <visualization_msgs/msg/marker.hpp>
 #include <geometry_msgs/msg/pose_stamped.hpp>
+#include <geometry_msgs/msg/point_stamped.hpp>
+
 
 
 #include <lidar_msgs/msg/obstacle_data.hpp>
@@ -36,7 +38,7 @@
 
 using namespace std;
 
-#include "obstacle_detector.hpp"
+#include "obstacle_detector_2.hpp"
 
 struct BBox
 {
@@ -169,8 +171,7 @@ private:
 
 
     rclcpp::Publisher<lidar_msgs::msg::ObstacleData>::SharedPtr obstacle_data_publisher_;
-
-
+    rclcpp::Publisher<geometry_msgs::msg::PointStamped>::SharedPtr centroid_publisher_;
 
 
 public:
@@ -203,7 +204,7 @@ ObjectDetection::ObjectDetection(/* args */) : Node("lidar3d_clustering_node"), 
 
     
     // Create subscriber
-    sub_points_cloud_ = this->create_subscription<sensor_msgs::msg::PointCloud2>("/points_ground", 10, std::bind(&ObjectDetection::pointCloudCallback, this, std::placeholders::_1)); // roi points cloud
+    sub_points_cloud_ = this->create_subscription<sensor_msgs::msg::PointCloud2>("/ground_removal", 10, std::bind(&ObjectDetection::pointCloudCallback, this, std::placeholders::_1)); // roi points cloud
 
     // Create publisher
     // ground_seg_pub_ = this->create_publisher<sensor_msgs::msg::PointCloud2>("ground_points", 10); // ground points
@@ -220,6 +221,9 @@ ObjectDetection::ObjectDetection(/* args */) : Node("lidar3d_clustering_node"), 
     hull_array_ = this->create_publisher<std_msgs::msg::Float32MultiArray>("convex_hull_array", 10);
 
     obstacle_data_publisher_ = this->create_publisher<lidar_msgs::msg::ObstacleData>("obstacle_data", 10);
+
+    centroid_publisher_ = this->create_publisher<geometry_msgs::msg::PointStamped>("centroid_topic", 10);
+
 
     obstacle_id_ = 0;
     // front_zone = Zone(Point{0.0, -1.0}, Point{0.0, 1.0}, Point{2.0, 1.0}, Point{2.0, -1.0});
@@ -269,13 +273,26 @@ void ObjectDetection::pointCloudCallback(const sensor_msgs::msg::PointCloud2::Sh
 
         // auto segmented_clouds = obstacle_detector->segmentPlane(input_cloud, 100, GROUND_THRESHOLD);
         auto cloud_clusters = obstacle_detector->clustering(input_cloud, CLUSTER_THRESH, CLUSTER_MIN_SIZE, CLUSTER_MAX_SIZE);
+        auto& clusters = cloud_clusters.first;
+        auto& centroids = cloud_clusters.second;
 
         // Proceed with further processing only if valid data is present
-        if (!cloud_clusters.empty()) {
+        if (!clusters.empty()) {
 
             // box3dcreation(std::move(cloud_clusters), msg->header);
 
-            convex_hull(std::move(cloud_clusters));
+            convex_hull(std::move(clusters));
+
+            for (size_t i = 0; i < centroids.size(); ++i) {
+                geometry_msgs::msg::PointStamped centroid_msg;
+                // centroid_msg.header.stamp = this->get_clock()->now();
+                centroid_msg.header.frame_id = "base_footprint"; // or another appropriate frame
+                centroid_msg.point.x = centroids[i].x;
+                centroid_msg.point.y = centroids[i].y;
+                centroid_msg.point.z = centroids[i].z;
+
+                centroid_publisher_->publish(centroid_msg);
+            }
 
             // RCLCPP_INFO(this->get_logger(), "Number of clusters: %zu", cloud_clusters.size());
 
@@ -714,7 +731,7 @@ void ObjectDetection::convex_hull(std::vector<pcl::PointCloud<pcl::PointXYZ>::Pt
 
                 // Create a marker for the convex hull
                 visualization_msgs::msg::Marker hull_marker;
-                hull_marker.header.frame_id = "base_footprint"; 
+                hull_marker.header.frame_id = "base_link"; 
                 // hull_marker.header.stamp = this->get_clock()->now();
                 hull_marker.ns = "hull";
                 hull_marker.id = index + 2000;  // Use the index variable

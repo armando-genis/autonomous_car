@@ -43,6 +43,8 @@
 using namespace std;
 
 
+
+
 class LidarGround : public rclcpp::Node
 {
 private:
@@ -65,7 +67,7 @@ LidarGround::LidarGround(/* args */): Node("lidar_ground_node")
     this->get_parameter("treshold_ground_", treshold_ground_);
 
     sub_ = this->create_subscription<sensor_msgs::msg::PointCloud2>("/points_roi", 10, std::bind(&LidarGround::pointCloudCallback, this, std::placeholders::_1));
-    pub_ = this->create_publisher<sensor_msgs::msg::PointCloud2>("/points_ground", 10);
+    pub_ = this->create_publisher<sensor_msgs::msg::PointCloud2>("/ground_removal", 10);
 
     RCLCPP_INFO(this->get_logger(), "\033[1;32m----> lidar_ground_getter_node initialized.\033[0m");
 

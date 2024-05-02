@@ -45,7 +45,7 @@ if(BUILD_TESTING)
   ament_lint_auto_find_test_dependencies()
 endif()
 
-add_executable(lidar_ground_node src/LidarGround.cpp)
+add_executable(lidar_ground_node src/LidarGround_version2.cpp)
 
 ament_target_dependencies(lidar_ground_node rclcpp std_msgs pcl_conversions sensor_msgs message_filters tf2 tf2_ros tf2_geometry_msgs)
 target_link_libraries(lidar_ground_node Eigen3::Eigen)
