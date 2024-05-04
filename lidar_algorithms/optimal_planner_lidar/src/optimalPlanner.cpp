@@ -191,7 +191,7 @@ void optimalPlanner::obstacleDataCallback(const lidar_msgs::msg::ObstacleData::S
 void optimalPlanner::publishOccupancyGrid()
 {
     nav_msgs::msg::OccupancyGrid grid;
-    grid.header.frame_id = "base_link";  // Or whatever frame is appropriate
+    grid.header.frame_id = "base_footprint"; 
     grid.info.resolution = 0.1;  // in meters
     grid.info.width = 115;  // grid width
     grid.info.height = 100;  // grid height
@@ -342,6 +342,10 @@ void optimalPlanner::line_steering_wheels_calculation(){
         y_new.push_back(spline_y.calc_der0(t));
     }
 
+    // print the size of the x_new and y_new
+    RCLCPP_INFO(this->get_logger(), "Size of x_new: %d", x_new.size());
+    RCLCPP_INFO(this->get_logger(), "Size of y_new: %d", y_new.size());
+
     // Publish the lane
     nav_msgs::msg::Path path;
     path.header.frame_id = "base_footprint";
@@ -393,7 +397,6 @@ void optimalPlanner::line_steering_wheels_calculation(){
         car_steering_zone(matrix_index++, 1) = left_point.y;
 
         lane_maker.points.push_back(left_point);
-
     }
 
     //  invertion of the right side to math with the left side  
@@ -433,7 +436,6 @@ Eigen::Vector3d optimalPlanner::bbox_size()
     // distance between front and rear axles, distance from C to front/rear axle
 return Eigen::Vector3d{1.8, 2.0, 2.0};
 };
-
 
 
 int main(int argc, char** argv) {

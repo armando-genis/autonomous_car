@@ -778,7 +778,7 @@ void ObjectDetection::convex_hull(std::vector<pcl::PointCloud<pcl::PointXYZ>::Pt
             obstacle_msg.cluster_points.push_back(point_array_msg);
         }
 
-        RCLCPP_INFO(this->get_logger(), "Hull size: %ld",  hull_vector.size());
+        // RCLCPP_INFO(this->get_logger(), "Hull size: %ld",  hull_vector.size());
 
         obstacle_data_publisher_->publish(obstacle_msg);
 
