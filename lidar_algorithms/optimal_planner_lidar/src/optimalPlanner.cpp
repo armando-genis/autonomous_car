@@ -69,7 +69,7 @@ private:
 
     double yaw_car = 0.0;
     double turning_radius = 3.0;
-    double num_points = 13;
+    double num_points = 15;
     double track_car = 1;
 
     Eigen::MatrixXd car_steering_zone; 
@@ -77,7 +77,9 @@ private:
     /* data */
     void obstacleDataCallback(const lidar_msgs::msg::ObstacleData::SharedPtr msg);
     void publishOccupancyGrid();
-
+    double calculate_path_length(const std::vector<std::pair<double, double>>& path);
+    vector<std::pair<double, double>> extract_segment(const std::vector<std::pair<double, double>>& path, double length);
+    void extract_segment_cubic_lines(const std::vector<double>& x, const std::vector<double>& y, std::vector<double>& segment_x, std::vector<double>& segment_y, double length);
 
     vector<std::pair<double, double>> calculate_trajectory(double yaw, double turning_radius, int num_points);
     void yawCarCallback(const std_msgs::msg::Float64::SharedPtr msg);
@@ -313,11 +315,91 @@ vector<pair<double, double>> optimalPlanner::calculate_trajectory(double steerin
 }
 
 
+double optimalPlanner::calculate_path_length(const std::vector<std::pair<double, double>>& path) {
+    double total_length = 0.0;
+    for (size_t i = 1; i < path.size(); i++) {
+        double dx = path[i].first - path[i - 1].first;
+        double dy = path[i].second - path[i - 1].second;
+        total_length += sqrt(dx * dx + dy * dy);
+    }
+    return total_length;
+}
+
+std::vector<std::pair<double, double>> optimalPlanner::extract_segment(const std::vector<std::pair<double, double>>& path, double length) {
+    std::vector<std::pair<double, double>> segment;
+    double accumulated_length = 0.0;
+    segment.push_back(path[0]);  // Start with the first point
+
+    for (size_t i = 1; i < path.size() && accumulated_length < length; i++) {
+        double dx = path[i].first - path[i - 1].first;
+        double dy = path[i].second - path[i - 1].second;
+        double segment_length = sqrt(dx * dx + dy * dy);
+        if (accumulated_length + segment_length > length) {
+            // Interpolate to find the exact point where the segment reaches 4 meters
+            double ratio = (length - accumulated_length) / segment_length;
+            double x = path[i - 1].first + ratio * dx;
+            double y = path[i - 1].second + ratio * dy;
+            segment.push_back(std::make_pair(x, y));
+            break;
+        } else {
+            segment.push_back(path[i]);
+            accumulated_length += segment_length;
+        }
+    }
+    return segment;
+}
+
+void optimalPlanner::extract_segment_cubic_lines(const std::vector<double>& x, const std::vector<double>& y, std::vector<double>& segment_x, std::vector<double>& segment_y, double length) {
+    if (x.empty() || y.empty()) return;  // Early exit if input is empty
+
+    // Initialize with the first point
+    segment_x.push_back(x.front());
+    segment_y.push_back(y.front());
+    
+    double accumulated_length = 0.0;
+    double previous_x = x.front();
+    double previous_y = y.front();
+
+    for (size_t i = 1; i < x.size() && accumulated_length < length; ++i) {
+        double current_x = x[i];
+        double current_y = y[i];
+
+        // Calculate the distance from the previous point to the current point
+        double dx = current_x - previous_x;
+        double dy = current_y - previous_y;
+        double segment_length = sqrt(dx * dx + dy * dy);
+
+        // Update the accumulated length
+        accumulated_length += segment_length;
+
+        if (accumulated_length >= length) {
+            // Calculate how much to scale back the last segment to fit exactly 'length' meters
+            double excess_length = accumulated_length - length;
+            double ratio = segment_length > 0 ? (segment_length - excess_length) / segment_length : 0;
+            current_x = previous_x + ratio * dx;
+            current_y = previous_y + ratio * dy;
+
+            segment_x.push_back(current_x);
+            segment_y.push_back(current_y);
+            break;
+        } else {
+            // Add the current point and update the previous points
+            segment_x.push_back(current_x);
+            segment_y.push_back(current_y);
+            previous_x = current_x;
+            previous_y = current_y;
+        }
+    }
+}
+
+
+
 void optimalPlanner::line_steering_wheels_calculation(){
 
 
     // Calculate the trajectory of the car in base of the yaw
     vector<pair<double, double>> trajectory = calculate_trajectory(yaw_car, turning_radius, num_points);
+    // vector<pair<double, double>> trajectory = extract_segment(entire_trajectory, 4.0);  //This can be use but if the yaw is 0.1 is weird the extration. 
 
     std::vector<double> t_values(trajectory.size());
     std::iota(t_values.begin(), t_values.end(), 0);  // fills t_values with increasing values starting from  0
@@ -337,7 +419,9 @@ void optimalPlanner::line_steering_wheels_calculation(){
 
     // Interpolate waypoints using the t_values range
     std::vector<double> x_new, y_new;
-    for (double t = 0; t < t_values.size() - 1; t += 0.1) {
+    std::vector<double> x_new_entire, y_new_entire;
+
+    for (double t = 0; t < t_values.size() - 1; t += 0.25) {
         x_new.push_back(spline_x.calc_der0(t));
         y_new.push_back(spline_y.calc_der0(t));
     }
@@ -345,6 +429,9 @@ void optimalPlanner::line_steering_wheels_calculation(){
     // print the size of the x_new and y_new
     RCLCPP_INFO(this->get_logger(), "Size of x_new: %d", x_new.size());
     RCLCPP_INFO(this->get_logger(), "Size of y_new: %d", y_new.size());
+
+    std::vector<double> segment_x, segment_y;
+    extract_segment_cubic_lines(x_new, y_new, segment_x, segment_y, 4.0);
 
     // Publish the lane
     nav_msgs::msg::Path path;
@@ -377,21 +464,21 @@ void optimalPlanner::line_steering_wheels_calculation(){
     lane_maker.color.g = 0.35;  
     lane_maker.color.b = 0.12;  
 
-    car_steering_zone.resize(x_new.size() * 2, 2);
+    car_steering_zone.resize(segment_x.size() * 2, 2);
 
     size_t matrix_index = 0;
 
     // Publish lane with the track of the car 
-    for (size_t i = 0; i < x_new.size(); ++i) 
+    for (size_t i = 0; i < segment_x.size(); ++i) 
     {
-        double angle = atan2(y_new[i] - y_new[std::max(int(i) - 1, 0)], x_new[i] - x_new[std::max(int(i) - 1, 0)]);
+        double angle = atan2(segment_y[i] - segment_y[std::max(int(i) - 1, 0)], segment_x[i] - segment_x[std::max(int(i) - 1, 0)]);
         double offset_x = track_car * cos(angle + M_PI / 2);
         double offset_y = track_car * sin(angle + M_PI / 2);
 
         geometry_msgs::msg::Point left_point;
 
-        left_point.x = x_new[i] + offset_x;
-        left_point.y = y_new[i] + offset_y;
+        left_point.x = segment_x[i] + offset_x;
+        left_point.y = segment_y[i] + offset_y;
 
         car_steering_zone(matrix_index, 0) = left_point.x;
         car_steering_zone(matrix_index++, 1) = left_point.y;
@@ -400,17 +487,17 @@ void optimalPlanner::line_steering_wheels_calculation(){
     }
 
     //  invertion of the right side to math with the left side  
-    for (size_t i = x_new.size(); i-- > 0; ) 
+    for (size_t i = segment_x.size(); i-- > 0; ) 
     {
         int previous_index = (i > 0) ? (i - 1) : 0;
-        double angle = atan2(y_new[i] - y_new[previous_index], x_new[i] - x_new[previous_index]);
+        double angle = atan2(segment_y[i] - segment_y[previous_index], segment_x[i] - segment_x[previous_index]);
         double offset_x = track_car * cos(angle + M_PI / 2);
         double offset_y = track_car * sin(angle + M_PI / 2);
 
         geometry_msgs::msg::Point right_point;
 
-        right_point.x = x_new[i] - offset_x;
-        right_point.y = y_new[i] - offset_y;
+        right_point.x = segment_x[i] - offset_x;
+        right_point.y = segment_y[i] - offset_y;
 
         car_steering_zone(matrix_index, 0) = right_point.x;
         car_steering_zone(matrix_index++, 1) = right_point.y;
