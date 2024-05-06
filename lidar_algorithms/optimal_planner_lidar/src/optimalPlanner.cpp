@@ -50,7 +50,6 @@ using namespace std;
 #include "CubicSpline1D.h"
 #include "sat_collision_checker.h"
 
-
 // nav_msgs/OccupancyGrid
 
 class optimalPlanner : public rclcpp::Node
@@ -335,7 +334,6 @@ vector<pair<double, double>> optimalPlanner::calculate_trajectory(double steerin
 
     return path;
 }
-
 
 double optimalPlanner::calculate_path_length(const std::vector<std::pair<double, double>>& path) {
     double total_length = 0.0;

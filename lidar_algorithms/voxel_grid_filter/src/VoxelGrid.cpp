@@ -235,8 +235,6 @@ void VoxelGrid::pointCloudCallback(const sensor_msgs::msg::PointCloud2::SharedPt
         roi_sampling_pub_->publish(downsampled_cloud_msg_rio);
     }
 
-
-
 }
 
 int main(int argc, char** argv) {
