@@ -47,7 +47,7 @@ if(BUILD_TESTING)
   ament_lint_auto_find_test_dependencies()
 endif()
 
-add_executable(lidar_planner src/optimalPlanner.cpp src/CubicSpline1D.cpp)
+add_executable(lidar_planner src/optimalPlanner.cpp src/CubicSpline1D.cpp src/sat_collision_checker.cc)
 
 ament_target_dependencies(lidar_planner rclcpp std_msgs pcl_conversions sensor_msgs message_filters tf2 tf2_ros tf2_geometry_msgs lidar_msgs nav_msgs visualization_msgs)
 target_link_libraries(lidar_planner Eigen3::Eigen)

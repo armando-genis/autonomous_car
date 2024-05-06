@@ -48,6 +48,7 @@
 using namespace std;
 
 #include "CubicSpline1D.h"
+#include "sat_collision_checker.h"
 
 
 // nav_msgs/OccupancyGrid
@@ -61,7 +62,8 @@ private:
 
     vector<std::vector<geometry_msgs::msg::Point>> prev_hull_vector;
 
-
+    fop::SATCollisionChecker collision_checker; 
+    geometry_msgs::msg::Polygon vehicle_path;
 
 
     
@@ -95,8 +97,6 @@ private:
 
     // rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr hull_publisher_inflated_;
 
-
-    
 
 public:
     optimalPlanner(/* args */);
@@ -137,12 +137,35 @@ void optimalPlanner::obstacleDataCallback(const lidar_msgs::msg::ObstacleData::S
 
     for (const auto& point_array : msg->cluster_points)
     {
+
+        geometry_msgs::msg::Polygon obstacle_poly;
         std::vector<geometry_msgs::msg::Point> cluster;
         for (const auto& point : point_array.points)
         {
             cluster.push_back(point);
+
+            geometry_msgs::msg::Point32 p;
+            p.x = point.x;
+            p.y = point.y;
+            obstacle_poly.points.push_back(p);
         }
         hull_vector.push_back(cluster);
+
+        obstacle_poly.points.push_back(obstacle_poly.points.front()); // Close the loop
+
+        // RCLCPP_INFO(this->get_logger(), "Checking collision. Vehicle path size: %lu, Obstacle poly size: %lu",
+        //             vehicle_path.points.size(), obstacle_poly.points.size());
+
+
+    
+        if (collision_checker.check_collision(vehicle_path, obstacle_poly)) {
+            RCLCPP_WARN(this->get_logger(), "Collision detected with an obstacle!");
+            // Handle collision
+        }
+
+
+        //  obstacle detector:
+        
     }
 
     // for (size_t i = 0; i < hull_vector.size(); i++)
@@ -293,7 +316,6 @@ vector<pair<double, double>> optimalPlanner::calculate_trajectory(double steerin
     } else {
         double radius = wheelbase / tan(fabs(steering_angle));
         double circumference = 2 * M_PI * radius; 
-        double arc_length = circumference / 4; 
         double angular_step = M_PI / 2 / num_points; 
 
         double theta = 0; // Starting angle
@@ -396,6 +418,8 @@ void optimalPlanner::extract_segment_cubic_lines(const std::vector<double>& x, c
 
 void optimalPlanner::line_steering_wheels_calculation(){
 
+    vehicle_path.points.clear();
+
 
     // Calculate the trajectory of the car in base of the yaw
     vector<pair<double, double>> trajectory = calculate_trajectory(yaw_car, turning_radius, num_points);
@@ -426,12 +450,12 @@ void optimalPlanner::line_steering_wheels_calculation(){
         y_new.push_back(spline_y.calc_der0(t));
     }
 
-    // print the size of the x_new and y_new
-    RCLCPP_INFO(this->get_logger(), "Size of x_new: %d", x_new.size());
-    RCLCPP_INFO(this->get_logger(), "Size of y_new: %d", y_new.size());
+
+    // RCLCPP_INFO(this->get_logger(), "Size of x_new: %d", x_new.size());
+    // RCLCPP_INFO(this->get_logger(), "Size of y_new: %d", y_new.size());
 
     std::vector<double> segment_x, segment_y;
-    extract_segment_cubic_lines(x_new, y_new, segment_x, segment_y, 4.0);
+    extract_segment_cubic_lines(x_new, y_new, segment_x, segment_y, 2.5);
 
     // Publish the lane
     nav_msgs::msg::Path path;
@@ -456,12 +480,12 @@ void optimalPlanner::line_steering_wheels_calculation(){
     lane_maker.id = 0;
     lane_maker.type = visualization_msgs::msg::Marker::LINE_STRIP;
     lane_maker.action = visualization_msgs::msg::Marker::ADD;
-    lane_maker.scale.x = 0.1;
+    lane_maker.scale.x = 0.02;
     lane_maker.scale.y = 0.5;
     lane_maker.scale.z = 0.5; 
     lane_maker.color.a = 1.0;  
-    lane_maker.color.r = 0.0;  
-    lane_maker.color.g = 0.35;  
+    lane_maker.color.r = 1.0;  
+    lane_maker.color.g = 1.0;  
     lane_maker.color.b = 0.12;  
 
     car_steering_zone.resize(segment_x.size() * 2, 2);
@@ -484,6 +508,13 @@ void optimalPlanner::line_steering_wheels_calculation(){
         car_steering_zone(matrix_index++, 1) = left_point.y;
 
         lane_maker.points.push_back(left_point);
+
+        geometry_msgs::msg::Point32 converted_point;
+        converted_point.x = left_point.x;
+        converted_point.y = left_point.y;
+        converted_point.z = 0.0;
+        vehicle_path.points.push_back(converted_point);
+
     }
 
     //  invertion of the right side to math with the left side  
@@ -503,9 +534,17 @@ void optimalPlanner::line_steering_wheels_calculation(){
         car_steering_zone(matrix_index++, 1) = right_point.y;
 
         lane_maker.points.push_back(right_point);
+
+        geometry_msgs::msg::Point32 converted_point;
+        converted_point.x = right_point.x;
+        converted_point.y = right_point.y;
+        converted_point.z = 0.0;
+        vehicle_path.points.push_back(converted_point);
     }
 
     lane_maker.points.push_back(lane_maker.points.front()); // Close the loop
+
+    vehicle_path.points.push_back(vehicle_path.points.front());
 
     lane_steering_publisher_->publish(lane_maker);
 
