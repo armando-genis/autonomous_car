@@ -39,4 +39,13 @@
     <child link="rslidar"/>
   </joint>
 
+
+  <link name="warning_obstacle"/>
+
+  <joint name="warning_base_mount_joint" type="fixed">
+    <origin xyz="1.2 0.0 0.0" rpy="0 0 0" />
+    <parent link="chassis_link"/>
+    <child link="warning_obstacle"/>
+  </joint>
+
 </robot>

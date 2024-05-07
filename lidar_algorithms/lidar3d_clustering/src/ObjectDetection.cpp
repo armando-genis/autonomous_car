@@ -538,7 +538,7 @@ void ObjectDetection::warnning_display(const int warning_code)
 {
 
     visualization_msgs::msg::Marker wall_marker;
-    wall_marker.header.frame_id = "detector_wall";
+    wall_marker.header.frame_id = "warning_obstacle";
     wall_marker.header.stamp = rclcpp::Clock().now();
     wall_marker.ns = "wall";
     wall_marker.id = 0;
@@ -652,7 +652,7 @@ void ObjectDetection::publish_zone(const Zone& zone1, const Zone& zone2) {
 
 visualization_msgs::msg::Marker ObjectDetection::create_zone_marker(const Zone& zone, int id, const std::string& color) {
     visualization_msgs::msg::Marker marker;
-    marker.header.frame_id = "detector_wall"; 
+    marker.header.frame_id = "warning_obstacle"; 
     marker.ns = "zone";
     marker.id = id;
     marker.type = visualization_msgs::msg::Marker::LINE_STRIP;

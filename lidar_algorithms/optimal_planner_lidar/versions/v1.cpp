@@ -64,7 +64,7 @@ private:
     fop::SATCollisionChecker collision_checker; 
     geometry_msgs::msg::Polygon vehicle_path;
 
-    bool collision_detected = false;
+    bool colliton_detectin = false;
 
     std::vector<bool> collision_vector;
 
@@ -137,9 +137,6 @@ void optimalPlanner::obstacleDataCallback(const lidar_msgs::msg::ObstacleData::S
     // RCLCPP_INFO(this->get_logger(), "\033[1;31m----> obstacleDataCallback.\033[0m");
 
     hull_vector.clear();
-    collision_vector.clear();
-
-    collision_detected = false;
 
     for (const auto& point_array : msg->cluster_points)
     {
@@ -157,24 +154,62 @@ void optimalPlanner::obstacleDataCallback(const lidar_msgs::msg::ObstacleData::S
         }
         hull_vector.push_back(cluster);
 
-
-        bool current_collision = collision_checker.check_collision(vehicle_path, obstacle_poly);
-        collision_vector.push_back(current_collision);
-
-        if (current_collision) {
-            collision_detected = true;  // Set to true if any collision is detected
+        if (collision_checker.check_collision(vehicle_path, obstacle_poly)) {
+            RCLCPP_WARN(this->get_logger(), "Collision detected with an obstacle!");
+            colliton_detectin = true;
+            // Handle collision
         }
+        else {
+            RCLCPP_INFO(this->get_logger(), "No collision detected with an obstacle.");
+            // Continue driving
+            colliton_detectin = false;
+        }
+
+        //  obstacle detector:
         
     }
 
+    // for (size_t i = 0; i < hull_vector.size(); i++)
+    // {
+    //     std::vector<geometry_msgs::msg::Point> hull_points;
+
+    //     for (size_t j = 0; j < hull_vector[i].size(); j++)
+    //     {
+    //         RCLCPP_INFO(this->get_logger(), "Hull Vector [%d]: %f, %f", i, hull_vector[i][j].x, hull_vector[i][j].y);
+
+    //         geometry_msgs::msg::Point p;
+    //         p.x = hull_vector[i][j].x;
+    //         p.y = hull_vector[i][j].y;
+    //         p.z = 0.0;
+    //         hull_points.push_back(p);
+    //     }
+
+    //     hull_points.push_back(hull_points.front()); 
+
+    //     // Publish the inflated hull
+    //     visualization_msgs::msg::Marker hull_marker;
+    //     hull_marker.header.frame_id = "base_footprint";
+    //     hull_marker.ns = "hull_inflated";
+    //     hull_marker.id = i + 2000;
+    //     hull_marker.type = visualization_msgs::msg::Marker::LINE_STRIP;
+    //     hull_marker.action = visualization_msgs::msg::Marker::ADD;
+    //     hull_marker.scale.x = 0.15;  
+    //     hull_marker.color.a = 1.0; 
+    //     hull_marker.color.r = 0.0;  
+    //     hull_marker.color.g = 1.0;  
+    //     hull_marker.color.b = 0.0;  
+    //     hull_marker.points = hull_points;
+
+    //     hull_publisher_inflated_->publish(hull_marker);
+    // }
 
     publishOccupancyGrid();
 
+    
+
     auto execution_time = std::chrono::duration_cast<std::chrono::milliseconds>( std::chrono::system_clock::now() - init_time) .count();
 
-    RCLCPP_INFO(this->get_logger(),"\033[1;31m----> Planar Segmentation callback finished in %ld ms. \033[0m", execution_time);
-    RCLCPP_INFO(this->get_logger(),"\033[1;31m----> hull size %d ms. \033[0m", hull_vector.size());
-
+      RCLCPP_INFO(this->get_logger(),"\033[1;31m----> Planar Segmentation callback finished in %ld ms. \033[0m", execution_time);
     
 }
 
@@ -255,7 +290,6 @@ void optimalPlanner::publishOccupancyGrid()
             int y1 = static_cast<int>((next_point.y - grid.info.origin.position.y) / grid.info.resolution);
 
             // Draw inflated line between points
-            
             draw_inflated_line(x0, y0, x1, y1, inflation_radius);
             
         }
@@ -388,6 +422,7 @@ void optimalPlanner::line_steering_wheels_calculation(){
 
     // Calculate the trajectory of the car in base of the yaw
     vector<pair<double, double>> trajectory = calculate_trajectory(yaw_car, turning_radius, num_points);
+    // vector<pair<double, double>> trajectory = extract_segment(entire_trajectory, 4.0);  //This can be use but if the yaw is 0.1 is weird the extration. 
 
     std::vector<double> t_values(trajectory.size());
     std::iota(t_values.begin(), t_values.end(), 0);  // fills t_values with increasing values starting from  0
@@ -450,12 +485,9 @@ void optimalPlanner::line_steering_wheels_calculation(){
     lane_maker.color.a = 1.0; 
 
 
-    for (size_t i = 0; i < collision_vector.size(); ++i)
-    {
-        RCLCPP_INFO(this->get_logger(), "Collision Vector at index %zu: %s", i, collision_vector[i] ? "true" : "false");
-    }
+    RCLCPP_INFO(this->get_logger(),"\033[1;31m--> Planar Segmentation  %b \033[0m", colliton_detectin);
 
-    if(collision_detected){
+    if(colliton_detectin){
         lane_maker.color.r = 1.0;  
         lane_maker.color.g = 0.0;  
         lane_maker.color.b = 0.0;
@@ -524,7 +556,10 @@ void optimalPlanner::line_steering_wheels_calculation(){
 
     vehicle_path.points.push_back(vehicle_path.points.front());
 
+
+
     lane_steering_publisher_->publish(lane_maker);
+
 }
 
 

@@ -16,24 +16,6 @@
 #include <visualization_msgs/msg/marker_array.hpp>
 #include <visualization_msgs/msg/marker.hpp>
 
-// PCL
-#include <pcl/point_types.h>
-#include <pcl/point_cloud.h>
-#include <pcl/common/common.h>
-#include <pcl/common/transforms.h>
-#include <pcl/filters/voxel_grid.h>
-#include <pcl_conversions/pcl_conversions.h>
-
-#include <pcl/filters/crop_box.h>
-
-#include <pcl/search/search.h>
-#include <pcl/search/kdtree.h>
-#include <pcl/features/normal_3d.h>
-#include <pcl/visualization/cloud_viewer.h>
-#include <pcl/filters/filter_indices.h>
-#include <pcl/segmentation/region_growing.h>
-#include <pcl/filters/extract_indices.h>
-#include <pcl/segmentation/sac_segmentation.h>
 
 // C++
 #include <iostream>
@@ -64,9 +46,7 @@ private:
     fop::SATCollisionChecker collision_checker; 
     geometry_msgs::msg::Polygon vehicle_path;
 
-    bool collision_detected = false;
-
-    std::vector<bool> collision_vector;
+    bool collition = false;
 
 
     
@@ -82,13 +62,14 @@ private:
     /* data */
     void obstacleDataCallback(const lidar_msgs::msg::ObstacleData::SharedPtr msg);
     void publishOccupancyGrid();
-    double calculate_path_length(const std::vector<std::pair<double, double>>& path);
-    vector<std::pair<double, double>> extract_segment(const std::vector<std::pair<double, double>>& path, double length);
+
     void extract_segment_cubic_lines(const std::vector<double>& x, const std::vector<double>& y, std::vector<double>& segment_x, std::vector<double>& segment_y, double length);
 
     vector<std::pair<double, double>> calculate_trajectory(double yaw, double turning_radius, int num_points);
     void yawCarCallback(const std_msgs::msg::Float64::SharedPtr msg);
     void line_steering_wheels_calculation();
+
+    void publishMarker();
 
     // Subscriber & Publisher
     rclcpp::Subscription<lidar_msgs::msg::ObstacleData>::SharedPtr obstacle_data_sub_;
@@ -98,7 +79,12 @@ private:
     rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr lane_steering_publisher_;
 
 
-    // rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr hull_publisher_inflated_;
+    rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr publisher_;
+
+    rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr hull_publisher_inflated_;
+
+    rclcpp::TimerBase::SharedPtr timer_;
+
 
 
 public:
@@ -119,7 +105,12 @@ optimalPlanner::optimalPlanner(/* args */): Node("optimal_planner_node")
 
     lane_steering_publisher_ = this->create_publisher<visualization_msgs::msg::Marker>("steering_lane", 10);
 
-    // hull_publisher_inflated_ = this->create_publisher<visualization_msgs::msg::Marker>("hull_inflated", 10);
+    publisher_ = this->create_publisher<visualization_msgs::msg::Marker>("visualization_marker", 10);
+
+
+    hull_publisher_inflated_ = this->create_publisher<visualization_msgs::msg::Marker>("hull_inflated", 10);
+
+    timer_ = this->create_wall_timer( std::chrono::milliseconds(500), std::bind(&optimalPlanner::publishMarker, this));
 
 
     RCLCPP_INFO(this->get_logger(), "\033[1;32m----> optimal_planner_node initialized.\033[0m");
@@ -131,21 +122,53 @@ optimalPlanner::~optimalPlanner()
 
 }
 
+void optimalPlanner::publishMarker()
+{
+        visualization_msgs::msg::Marker marker;
+        marker.header.frame_id = "warning_obstacle";
+        marker.header.stamp = this->get_clock()->now();
+        marker.ns = "basic_shapes";
+        marker.id = 0;
+        marker.type = visualization_msgs::msg::Marker::CUBE;
+        marker.action = visualization_msgs::msg::Marker::ADD;
+
+        // Set the pose of the marker. This is a full 6DOF pose relative to the frame/time specified in the header.
+        marker.pose.position.x = 1;
+        marker.pose.position.y = 1;
+        marker.pose.position.z = 1;
+        marker.pose.orientation.x = 0.0;
+        marker.pose.orientation.y = 0.0;
+        marker.pose.orientation.z = 0.0;
+        marker.pose.orientation.w = 1.0;
+
+        // Set the scale of the marker -- 1x1x1 here means 1m on a side.
+        marker.scale.x = 1.0;
+        marker.scale.y = 1.0;
+        marker.scale.z = 1.0;
+
+        // Set the color -- be sure to set alpha to something non-zero!
+        marker.color.r = 0.0f;
+        marker.color.g = 1.0f;
+        marker.color.b = 0.0f;
+        marker.color.a = 1.0;
+
+        publisher_->publish(marker);
+
+}
+
 void optimalPlanner::obstacleDataCallback(const lidar_msgs::msg::ObstacleData::SharedPtr msg)
 {
     auto init_time = std::chrono::system_clock::now();
-    // RCLCPP_INFO(this->get_logger(), "\033[1;31m----> obstacleDataCallback.\033[0m");
+
 
     hull_vector.clear();
-    collision_vector.clear();
-
-    collision_detected = false;
 
     for (const auto& point_array : msg->cluster_points)
     {
 
         geometry_msgs::msg::Polygon obstacle_poly;
         std::vector<geometry_msgs::msg::Point> cluster;
+        
         for (const auto& point : point_array.points)
         {
             cluster.push_back(point);
@@ -157,14 +180,16 @@ void optimalPlanner::obstacleDataCallback(const lidar_msgs::msg::ObstacleData::S
         }
         hull_vector.push_back(cluster);
 
+        obstacle_poly.points.push_back(obstacle_poly.points.front()); // Close the loop
 
-        bool current_collision = collision_checker.check_collision(vehicle_path, obstacle_poly);
-        collision_vector.push_back(current_collision);
+        collition = collision_checker.check_collision(vehicle_path, obstacle_poly);
 
-        if (current_collision) {
-            collision_detected = true;  // Set to true if any collision is detected
+        // print the colliton 
+    
+        if (collition) {
+            RCLCPP_WARN(this->get_logger(), "Collision detected with an obstacle!");
         }
-        
+
     }
 
 
@@ -172,9 +197,7 @@ void optimalPlanner::obstacleDataCallback(const lidar_msgs::msg::ObstacleData::S
 
     auto execution_time = std::chrono::duration_cast<std::chrono::milliseconds>( std::chrono::system_clock::now() - init_time) .count();
 
-    RCLCPP_INFO(this->get_logger(),"\033[1;31m----> Planar Segmentation callback finished in %ld ms. \033[0m", execution_time);
-    RCLCPP_INFO(this->get_logger(),"\033[1;31m----> hull size %d ms. \033[0m", hull_vector.size());
-
+      RCLCPP_INFO(this->get_logger(),"\033[1;31m----> Planar Segmentation callback finished in %ld ms. \033[0m", execution_time);
     
 }
 
@@ -182,12 +205,12 @@ void optimalPlanner::obstacleDataCallback(const lidar_msgs::msg::ObstacleData::S
 void optimalPlanner::publishOccupancyGrid()
 {
     nav_msgs::msg::OccupancyGrid grid;
-    grid.header.frame_id = "base_footprint"; 
-    grid.info.resolution = 0.1;  // in meters
-    grid.info.width = 115;  // grid width
-    grid.info.height = 100;  // grid height
-    grid.info.origin.position.x = -5.0;  // Center the origin of the grid
-    grid.info.origin.position.y = -5.0;  // Center the origin of the grid
+    grid.header.frame_id = "warning_obstacle"; 
+    grid.info.resolution = 0.1;  
+    grid.info.width = 115; 
+    grid.info.height = 100;  
+    grid.info.origin.position.x = -5.0;  
+    grid.info.origin.position.y = -5.0;  
     grid.info.origin.position.z = 0.0;
     grid.info.origin.orientation.w = 1.0;
 
@@ -255,7 +278,6 @@ void optimalPlanner::publishOccupancyGrid()
             int y1 = static_cast<int>((next_point.y - grid.info.origin.position.y) / grid.info.resolution);
 
             // Draw inflated line between points
-            
             draw_inflated_line(x0, y0, x1, y1, inflation_radius);
             
         }
@@ -282,6 +304,7 @@ vector<pair<double, double>> optimalPlanner::calculate_trajectory(double steerin
         }
     } else {
         double radius = wheelbase / tan(fabs(steering_angle));
+        double circumference = 2 * M_PI * radius; 
         double angular_step = M_PI / 2 / num_points; 
 
         double theta = 0; // Starting angle
@@ -302,39 +325,7 @@ vector<pair<double, double>> optimalPlanner::calculate_trajectory(double steerin
     return path;
 }
 
-double optimalPlanner::calculate_path_length(const std::vector<std::pair<double, double>>& path) {
-    double total_length = 0.0;
-    for (size_t i = 1; i < path.size(); i++) {
-        double dx = path[i].first - path[i - 1].first;
-        double dy = path[i].second - path[i - 1].second;
-        total_length += sqrt(dx * dx + dy * dy);
-    }
-    return total_length;
-}
 
-std::vector<std::pair<double, double>> optimalPlanner::extract_segment(const std::vector<std::pair<double, double>>& path, double length) {
-    std::vector<std::pair<double, double>> segment;
-    double accumulated_length = 0.0;
-    segment.push_back(path[0]);  // Start with the first point
-
-    for (size_t i = 1; i < path.size() && accumulated_length < length; i++) {
-        double dx = path[i].first - path[i - 1].first;
-        double dy = path[i].second - path[i - 1].second;
-        double segment_length = sqrt(dx * dx + dy * dy);
-        if (accumulated_length + segment_length > length) {
-            // Interpolate to find the exact point where the segment reaches 4 meters
-            double ratio = (length - accumulated_length) / segment_length;
-            double x = path[i - 1].first + ratio * dx;
-            double y = path[i - 1].second + ratio * dy;
-            segment.push_back(std::make_pair(x, y));
-            break;
-        } else {
-            segment.push_back(path[i]);
-            accumulated_length += segment_length;
-        }
-    }
-    return segment;
-}
 
 void optimalPlanner::extract_segment_cubic_lines(const std::vector<double>& x, const std::vector<double>& y, std::vector<double>& segment_x, std::vector<double>& segment_y, double length) {
     if (x.empty() || y.empty()) return;  // Early exit if input is empty
@@ -419,7 +410,7 @@ void optimalPlanner::line_steering_wheels_calculation(){
     // RCLCPP_INFO(this->get_logger(), "Size of y_new: %d", y_new.size());
 
     std::vector<double> segment_x, segment_y;
-    extract_segment_cubic_lines(x_new, y_new, segment_x, segment_y, 4);
+    extract_segment_cubic_lines(x_new, y_new, segment_x, segment_y, 2.5);
 
     // Publish the lane
     nav_msgs::msg::Path path;
@@ -447,24 +438,10 @@ void optimalPlanner::line_steering_wheels_calculation(){
     lane_maker.scale.x = 0.02;
     lane_maker.scale.y = 0.5;
     lane_maker.scale.z = 0.5; 
-    lane_maker.color.a = 1.0; 
-
-
-    for (size_t i = 0; i < collision_vector.size(); ++i)
-    {
-        RCLCPP_INFO(this->get_logger(), "Collision Vector at index %zu: %s", i, collision_vector[i] ? "true" : "false");
-    }
-
-    if(collision_detected){
-        lane_maker.color.r = 1.0;  
-        lane_maker.color.g = 0.0;  
-        lane_maker.color.b = 0.0;
-    }
-    else{
-        lane_maker.color.r = 0.0;  
-        lane_maker.color.g = 1.0;  
-        lane_maker.color.b = 0.0;
-    }
+    lane_maker.color.a = 1.0;  
+    lane_maker.color.r = 1.0;  
+    lane_maker.color.g = 1.0;  
+    lane_maker.color.b = 0.12;  
 
     car_steering_zone.resize(segment_x.size() * 2, 2);
 
@@ -525,6 +502,7 @@ void optimalPlanner::line_steering_wheels_calculation(){
     vehicle_path.points.push_back(vehicle_path.points.front());
 
     lane_steering_publisher_->publish(lane_maker);
+
 }
 
 
