@@ -201,18 +201,18 @@ void optimalPlanner::publishOccupancyGrid()
     };
 
     // Inflate cells around the given point
-    auto inflate_point = [&](int x, int y, int radius) {
+    auto inflate_point = [&](int x, int y, int radius, int value) {
         for (int dx = -radius; dx <= radius; ++dx) {
             for (int dy = -radius; dy <= radius; ++dy) {
                 if (dx * dx + dy * dy <= radius * radius) {  // Circle equation
-                    mark_grid(x + dx, y + dy, 100);
+                    mark_grid(x + dx, y + dy, value);
                 }
             }
         }
     };
 
     // Simple line drawing between two points with inflation
-    auto draw_inflated_line = [&](int x0, int y0, int x1, int y1, int radius) {
+    auto draw_inflated_line = [&](int x0, int y0, int x1, int y1, int radius, int value) {
         int dx = abs(x1 - x0), dy = abs(y1 - y0);
         int n = 1 + dx + dy;
         int x_inc = (x1 > x0) ? 1 : -1;
@@ -223,7 +223,7 @@ void optimalPlanner::publishOccupancyGrid()
 
         for (; n > 0; --n)
         {
-            inflate_point(x0, y0, radius);
+            inflate_point(x0, y0, radius, value);
 
             if (error > 0)
             {
@@ -240,13 +240,15 @@ void optimalPlanner::publishOccupancyGrid()
 
     // Convert each point in hull_vector to grid coordinates, draw lines and inflate
     int inflation_radius = 3; // Inflated radius in cells (30 cm)
-    for (const auto& cluster : hull_vector) 
+    for (size_t i = 0; i < hull_vector.size(); ++i) 
     {
+        auto& cluster = hull_vector[i];
+        int value_to_mark = collision_vector[i] ? 100 : 50;
 
-        for (size_t i = 0; i < cluster.size(); ++i) 
+        for (size_t j = 0; j < cluster.size(); ++j) 
         {
-            auto& current_point = cluster[i];
-            auto& next_point = cluster[(i + 1) % cluster.size()];
+            auto& current_point = cluster[j];
+            auto& next_point = cluster[(j + 1) % cluster.size()];
 
             // Convert point coordinates to grid indices
             int x0 = static_cast<int>((current_point.x - grid.info.origin.position.x) / grid.info.resolution);
@@ -256,7 +258,7 @@ void optimalPlanner::publishOccupancyGrid()
 
             // Draw inflated line between points
             
-            draw_inflated_line(x0, y0, x1, y1, inflation_radius);
+            draw_inflated_line(x0, y0, x1, y1, inflation_radius, value_to_mark);
             
         }
     }
