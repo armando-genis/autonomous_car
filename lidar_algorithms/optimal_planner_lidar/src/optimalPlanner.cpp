@@ -15,6 +15,8 @@
 #include <std_msgs/msg/float64.hpp>
 #include <visualization_msgs/msg/marker_array.hpp>
 #include <visualization_msgs/msg/marker.hpp>
+#include <std_msgs/msg/int8_multi_array.hpp>
+
 
 // PCL
 #include <pcl/point_types.h>
@@ -62,14 +64,13 @@ private:
     vector<std::vector<geometry_msgs::msg::Point>> prev_hull_vector;
 
     fop::SATCollisionChecker collision_checker; 
+
     geometry_msgs::msg::Polygon vehicle_path;
 
     bool collision_detected = false;
 
     std::vector<bool> collision_vector;
 
-
-    
     static Eigen::Vector3d bbox_size();
 
     double yaw_car = 0.0;
@@ -78,6 +79,8 @@ private:
     double track_car = 1;
 
     Eigen::MatrixXd car_steering_zone; 
+
+    std_msgs::msg::Int8MultiArray collision_msg;
 
     /* data */
     void obstacleDataCallback(const lidar_msgs::msg::ObstacleData::SharedPtr msg);
@@ -96,9 +99,8 @@ private:
     rclcpp::Publisher<nav_msgs::msg::Path>::SharedPtr lane_publisher_;
     rclcpp::Subscription<std_msgs::msg::Float64>::SharedPtr yaw_car_sub_;
     rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr lane_steering_publisher_;
+    rclcpp::Publisher<std_msgs::msg::Int8MultiArray>::SharedPtr collision_publisher_;
 
-
-    // rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr hull_publisher_inflated_;
 
 
 public:
@@ -119,7 +121,7 @@ optimalPlanner::optimalPlanner(/* args */): Node("optimal_planner_node")
 
     lane_steering_publisher_ = this->create_publisher<visualization_msgs::msg::Marker>("steering_lane", 10);
 
-    // hull_publisher_inflated_ = this->create_publisher<visualization_msgs::msg::Marker>("hull_inflated", 10);
+    collision_publisher_ = this->create_publisher<std_msgs::msg::Int8MultiArray>("/collision_data", 10);
 
 
     RCLCPP_INFO(this->get_logger(), "\033[1;32m----> optimal_planner_node initialized.\033[0m");
@@ -140,6 +142,7 @@ void optimalPlanner::obstacleDataCallback(const lidar_msgs::msg::ObstacleData::S
     collision_vector.clear();
 
     collision_detected = false;
+    collision_msg.data.resize(collision_vector.size());
 
     for (const auto& point_array : msg->cluster_points)
     {
@@ -157,9 +160,9 @@ void optimalPlanner::obstacleDataCallback(const lidar_msgs::msg::ObstacleData::S
         }
         hull_vector.push_back(cluster);
 
-
         bool current_collision = collision_checker.check_collision(vehicle_path, obstacle_poly);
         collision_vector.push_back(current_collision);
+        collision_msg.data.push_back(current_collision ? 1 : 0);
 
         if (current_collision) {
             collision_detected = true;  // Set to true if any collision is detected
@@ -167,6 +170,7 @@ void optimalPlanner::obstacleDataCallback(const lidar_msgs::msg::ObstacleData::S
         
     }
 
+    collision_publisher_->publish(collision_msg);
 
     publishOccupancyGrid();
 
@@ -266,9 +270,7 @@ void optimalPlanner::publishOccupancyGrid()
     // Publish the occupancy grid
     occupancy_grid_pub_->publish(grid);
 
-
     line_steering_wheels_calculation();
-
 
 }
 
@@ -541,7 +543,6 @@ Eigen::Vector3d optimalPlanner::bbox_size()
     // distance between front and rear axles, distance from C to front/rear axle
 return Eigen::Vector3d{1.8, 2.0, 2.0};
 };
-
 
 int main(int argc, char** argv) {
     rclcpp::init(argc, argv);
