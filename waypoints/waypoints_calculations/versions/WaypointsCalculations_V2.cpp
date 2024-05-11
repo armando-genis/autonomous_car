@@ -111,7 +111,9 @@ WaypointsCalculations::WaypointsCalculations(/* args */) : Node("waypoints_calcu
     this->get_parameter("mps_beta", mps_beta);
 
     target_waypoint_pub_ = this->create_publisher<visualization_msgs::msg::Marker>("target_waypoint_marker", 10);
+
     speed_pub_ = this->create_publisher<std_msgs::msg::Float32>("speedtarget", 10);  // Updated to Float32
+
     target_waypoint_pose_pub_ = this->create_publisher<geometry_msgs::msg::Pose>("target_waypoint_pose", 10);
 
     waypoints_sub_ = this->create_subscription<visualization_msgs::msg::MarkerArray>(
@@ -125,8 +127,11 @@ WaypointsCalculations::WaypointsCalculations(/* args */) : Node("waypoints_calcu
     );
 
     odom_subscriber_ = this->create_subscription<nav_msgs::msg::Odometry>("/odom_lidar", 10, std::bind(&WaypointsCalculations::odom_callback, this, std::placeholders::_1));
+
     cmd_vel_pub_ = this->create_publisher<geometry_msgs::msg::Twist>("/cmd_vel", 10);
+
     timer_ = this->create_wall_timer(std::chrono::milliseconds(200), std::bind(&WaypointsCalculations::pub_callback, this));
+
     waypoints_cube_lines_pub_ = this->create_publisher<visualization_msgs::msg::Marker>("waypoints_cube_lines_marker", 10);
 
 
@@ -146,12 +151,12 @@ WaypointsCalculations::~WaypointsCalculations()
 void WaypointsCalculations::pub_callback()
 {
     waypointsComputation();
-    setVelocityToSend();
-    marketTargetWaypoint();
-    publishTargetWaypointPose();
-    computeCrossTrackError();
-    computeSteeringAngle();
-    publishWaypointsCubeLinesMarker();
+    // setVelocityToSend();
+    // marketTargetWaypoint();
+    // publishTargetWaypointPose();
+    // computeCrossTrackError();
+    // computeSteeringAngle();
+    // publishWaypointsCubeLinesMarker();
     // auto msg = geometry_msgs::msg::Twist();
 
     // Set the linear and angular velocities
@@ -248,6 +253,7 @@ void WaypointsCalculations::waypoints_callback(const visualization_msgs::msg::Ma
 }
 
 void WaypointsCalculations::setVelocityToSend(){
+    if(velocities.empty()) return;
     if(closest_waypoint == 0){
         setVelocity = velocities[1];
     }else{
@@ -279,6 +285,7 @@ double WaypointsCalculations::getDistanceFromOdom(Eigen::VectorXd wapointPoint){
 }
 
 void WaypointsCalculations::waypointsComputation(){
+    if (waypoints.empty()) return;
     constexpr size_t first_wp = 0;                        
     const size_t last_wp = waypoints.size() - 1; 
     constexpr double max_distance_threshold = 10.0;
@@ -398,7 +405,7 @@ geometry_msgs::msg::Quaternion WaypointsCalculations::yawToQuaternion(double yaw
 }
 
 double WaypointsCalculations::GetNormaliceAngle(double angle){
-    if (angle > M_PI) angle -= 2 * M_PI;ros2 launch waypoints_niagara_loader waypointsLoader.launch.py
+    if (angle > M_PI) angle -= 2 * M_PI;
 
     if (angle < -M_PI) angle += 2 * M_PI;
     return angle;

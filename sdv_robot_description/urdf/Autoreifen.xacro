@@ -1,12 +1,8 @@
 <?xml version="1.0"?>
-<robot name="sdv_car" xmlns:xacro="http://www.ros.org/wiki/xacro">
+<robot name="dasautonomeauto" xmlns:xacro="http://www.ros.org/wiki/xacro">
 
-<!-- 
-  <xacro:property name="tire_dia" value="0.750"/> 
-  <xacro:property name="tire_width" value="0.125"/>  
-  <xacro:property name="hub_dia" value="0.235"/>   -->
 
-  <xacro:property name="tire_dia" value="0.750"/>  <!-- Reduced from 0.440 -->
+  <xacro:property name="tire_dia" value="0.350"/>  <!-- Reduced from 0.440 -->
   <xacro:property name="tire_width" value="0.195"/>  <!-- Reduced from 0.195 -->
   <xacro:property name="hub_dia" value="0.235"/>  <!-- Reduced from 0.235 -->
 
@@ -21,17 +17,14 @@
   <xacro:property name="axle_eff_limit" value="204.95"/>
   <xacro:property name="axle_vel_limit" value="39.02"/>
 
-
-  
-
   <!-- Properties of the car -->
-  <xacro:property name="front_wheel_x" value="0.087346576344423"/>
-  <xacro:property name="front_wheel_y" value="0.695625727164768"/>
-  <xacro:property name="front_wheel_z" value="0.2594929592556163"/>
+  <xacro:property name="front_wheel_x" value="0.787346576344423"/>
+  <xacro:property name="front_wheel_y" value="0.495625727164768"/>
+  <xacro:property name="front_wheel_z" value="0.1094929592556163"/>
 
-  <xacro:property name="rear_wheel_x" value="-2.04780116842239"/>
-  <xacro:property name="rear_wheel_y" value="0.695625727164768"/>
-  <xacro:property name="rear_wheel_z" value="0.2594929592556163"/>
+  <xacro:property name="rear_wheel_x" value="1.04780116842239"/>
+  <xacro:property name="rear_wheel_y" value="0.495625727164768"/>
+  <xacro:property name="rear_wheel_z" value="0.1094929592556163"/>
 
   <!-- Degree-to-radian conversions -->
   <xacro:property name="degrees_45" value="0.785398163"/>
@@ -42,7 +35,7 @@
   <xacro:property name="servo_no_load_speed" value="25"/> <!-- check -->
 
   <material name="black">
-      <color rgba="0 0 0 1"/>
+      <color rgba="1.0 1.0 1.0 1.0"/>
   </material>
 
   <xacro:macro name="thick_walled_tube_inertial"
@@ -84,7 +77,7 @@
 
       <origin xyz="${fr_reflect * front_wheel_x} ${lr_reflect * front_wheel_y} ${-front_wheel_z}" rpy="0 ${degrees_90} 0"/>
 
-      <parent link="base_link"/>
+      <parent link="chassis_link"/>
       <child link="${lr_prefix}_steering_link"/>
       <axis xyz="-1 0 0"/>
       <limit lower="${-degrees_45}" upper="${degrees_45}"
@@ -163,7 +156,6 @@
         </geometry>
       </collision>
 
-
       <xacro:thick_walled_tube_inertial
           inner_rad="${hub_dia / 2}" outer_rad="${tire_dia / 2}"
           height="${tire_width}" mass="${wheel_mass}"/>
@@ -171,7 +163,7 @@
 
 
     <joint name="${lr_prefix}_${fr_prefix}_axle" type="continuous">
-      <parent link="base_link"/>
+      <parent link="chassis_link"/>
       <child link="${lr_prefix}_${fr_prefix}_wheel"/>
       <origin xyz="${fr_reflect * rear_wheel_x} ${lr_reflect * rear_wheel_y} ${-rear_wheel_z}" rpy="1.5708 0 0"/>
       <axis xyz="0 0 -1"/>
@@ -195,6 +187,9 @@
     <xacro:macro name="rear_wheel_to_base" params="lr_prefix fr_prefix lr_reflect fr_reflect">
         <xacro:rear_wheel lr_prefix="${lr_prefix}" fr_prefix="${fr_prefix}" lr_reflect="${lr_reflect}"/>
     </xacro:macro>
+
+
+
 
   
 

@@ -55,8 +55,6 @@ private:
     // rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr down_sampling_pub_;
     rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr roi_sampling_pub_;
     
-
-
     void pointCloudCallback(const sensor_msgs::msg::PointCloud2::SharedPtr msg);
 
 

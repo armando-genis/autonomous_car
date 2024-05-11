@@ -128,7 +128,6 @@ WaypointsCalculations::~WaypointsCalculations()
 void WaypointsCalculations::pub_callback()
 {
     waypointsComputation();
-    // setVelocityToSend();
     marketTargetWaypoint();
     publishTargetWaypointPose();
 }
@@ -217,6 +216,8 @@ double WaypointsCalculations::getDistanceFromOdom(Eigen::VectorXd wapointPoint){
 }
 
 void WaypointsCalculations::waypointsComputation(){
+    if (waypoints.empty()) return;
+
     constexpr size_t first_wp = 0;                        
     const size_t last_wp = waypoints.size() - 1; 
     constexpr double max_distance_threshold = 10.0;
@@ -280,6 +281,8 @@ void WaypointsCalculations::waypointsComputation(){
 void WaypointsCalculations::marketTargetWaypoint(){
     // Publish target waypoint marker
 
+    if (waypoints.empty()) return;
+
     visualization_msgs::msg::Marker marker;
     marker.header.frame_id = "map";  
     marker.header.stamp = this->now();
@@ -307,6 +310,8 @@ void WaypointsCalculations::marketTargetWaypoint(){
 
 void WaypointsCalculations::publishTargetWaypointPose()
 {
+
+    if (waypoints.empty()) return;
     geometry_msgs::msg::Pose msg;
     msg.position.x = waypoints[target_waypoint](0);
     msg.position.y = waypoints[target_waypoint](1);

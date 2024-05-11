@@ -14,7 +14,7 @@ def generate_launch_description():
     pkg_share = launch_ros.substitutions.FindPackageShare(package='sdv_robot_description').find('sdv_robot_description')
     default_rviz_config_path = os.path.join(pkg_share, 'rviz/sdv_config.rviz')
 
-    urdf_file_name = 'hook.urdf'
+    urdf_file_name = 'zf_car.urdf'
 
     print('urdf_file_name : {}'.format(urdf_file_name))
 

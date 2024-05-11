@@ -1,0 +1,60 @@
+<?xml version="1.0"?>
+<robot name="dasautonomeauto" xmlns:xacro="http://www.ros.org/wiki/xacro">
+
+
+
+      <!-- Add the wheels xacros -->
+    <xacro:include filename="$(find sdv_robot_description)/urdf/Autoreifen.xacro" />
+
+    <!-- Robot mechanical and motor parameters -->
+    <xacro:property name="PI" value="3.1415926535897931"/>
+    <xacro:property name="wheel_width" value="0.175" />
+    <xacro:property name="clearance" value="${0.3/2.0}" />
+
+    <!--  BASE FOOTPRINT  -->
+    <link name="base_footprint"/>
+
+    <joint name="base_footprint_joint" type="fixed">
+      <origin xyz="0 0 0.2" rpy="0 0 0" /> 
+      <parent link="base_footprint"/>
+      <child link="chassis_link" />
+    </joint>  
+
+
+    <!-- BASE_LINK -->
+    <link name="chassis_link">
+        <visual>
+            <origin xyz="0 0 0" rpy="0 0 0" />
+            <geometry>
+                <mesh filename="file://$(find sdv_robot_description)/meshes/base_link_w_roof.STL" />
+            </geometry>
+            <material name="white">
+                <color rgba="1.0 1.0 1.0 1.0"/>
+            </material>
+        </visual>  
+    </link>
+
+
+    <xacro:front_wheel_to_base lr_prefix="left" fr_prefix="front" lr_reflect="1" fr_reflect="1" />
+    <xacro:front_wheel_to_base lr_prefix="right" fr_prefix="front" lr_reflect="-1" fr_reflect="1" />
+    <xacro:rear_wheel_to_base lr_prefix="left" fr_prefix="rear" lr_reflect="1" fr_reflect="-1" />
+    <xacro:rear_wheel_to_base lr_prefix="right" fr_prefix="rear" lr_reflect="-1" fr_reflect="-1" />
+
+
+  <link name="rslidar"/>
+
+  <joint name="rslidar_base_mount_joint" type="fixed">
+    <origin xyz="0 0 1.6" rpy="0 0 0" />
+    <parent link="chassis_link"/>
+    <child link="rslidar"/>
+  </joint>
+
+ <link name="warning_obstacle"/>
+
+  <joint name="warning_base_mount_joint" type="fixed">
+    <origin xyz="1.2 0.0 0.0" rpy="0 0 0" />
+    <parent link="chassis_link"/>
+    <child link="warning_obstacle"/>
+  </joint>
+    
+</robot>
