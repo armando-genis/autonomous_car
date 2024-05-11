@@ -9,6 +9,12 @@ endif()
 find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(std_msgs REQUIRED)
+find_package(sensor_msgs REQUIRED)
+find_package(lidar_msgs REQUIRED)
+find_package(visualization_msgs REQUIRED)
+
+# External dependencies
+find_package(Eigen3 REQUIRED)
 
 if(BUILD_TESTING)
   find_package(ament_lint_auto REQUIRED)
@@ -21,5 +27,25 @@ if(BUILD_TESTING)
   set(ament_cmake_cpplint_FOUND TRUE)
   ament_lint_auto_find_test_dependencies()
 endif()
+
+add_executable(frenet_frame_node src/FranetFrame.cpp)
+
+ament_target_dependencies(frenet_frame_node rclcpp std_msgs sensor_msgs lidar_msgs visualization_msgs)
+target_link_libraries(frenet_frame_node Eigen3::Eigen)
+
+
+install(TARGETS
+  frenet_frame_node
+  DESTINATION lib/${PROJECT_NAME}
+)
+
+install(
+  DIRECTORY launch src
+  DESTINATION share/${PROJECT_NAME}
+)
+
+message(=============================================================)
+message("-- ROS Not Found. ROS Support is turned Off.")
+message(=============================================================)
 
 ament_package()
