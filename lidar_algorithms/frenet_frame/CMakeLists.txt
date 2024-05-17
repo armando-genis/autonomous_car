@@ -28,7 +28,7 @@ if(BUILD_TESTING)
   ament_lint_auto_find_test_dependencies()
 endif()
 
-add_executable(frenet_frame_node src/FranetFrame.cpp)
+add_executable(frenet_frame_node src/FranetFrame.cpp src/frenet_utils.cpp src/polynomial.cpp)
 
 ament_target_dependencies(frenet_frame_node rclcpp std_msgs sensor_msgs lidar_msgs visualization_msgs)
 target_link_libraries(frenet_frame_node Eigen3::Eigen)

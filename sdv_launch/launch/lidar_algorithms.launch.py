@@ -52,13 +52,24 @@ def generate_launch_description():
         ]),
     )
 
+    optimal_planner = IncludeLaunchDescription(
+        PythonLaunchDescriptionSource([
+            PathJoinSubstitution([
+                FindPackageShare('optimal_planner_lidar'),
+                'launch',
+                'optimalPlanner.launch.py'
+            ])
+        ]),
+    )
+
     return LaunchDescription([
 
         voxel_filter,
+        ground_getter,
         TimerAction(
             actions=[
-                ground_getter,
-                lidar3d_cluster
+                lidar3d_cluster,
+                optimal_planner
             ],
             period='2.0', 
         ),

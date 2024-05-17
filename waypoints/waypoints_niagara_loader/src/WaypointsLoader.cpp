@@ -45,7 +45,7 @@ class WaypointsLoader : public rclcpp::Node
 {
 private:
     /* data */
-    std::string file_path_ = "/home/genis/Music/wp.csv";
+    std::string file_path_ = "/home/genis/Music/my_points.csv";
     std::ofstream ofs_;
     vector<Eigen::VectorXd> waypoints;
     // vector<Eigen::VectorXd> waypointsCubeLines;
@@ -184,13 +184,13 @@ void WaypointsLoader::visualizeNewWaypoints() {
 
         visualization_msgs::msg::Marker marker;
         marker.header.stamp = this->now();
-        marker.header.frame_id = "map";
+        marker.header.frame_id = "base_footprint";
         marker.id = i + 1000;
         marker.type = visualization_msgs::msg::Marker::SPHERE;
         marker.action = visualization_msgs::msg::Marker::ADD;
         marker.pose.position.x = waypoints[i](0);  // Assuming x is the first element
         marker.pose.position.y = waypoints[i](1); 
-        marker.pose.position.z = waypoints[i](2) - 1.5;
+        marker.pose.position.z = waypoints[i](2);
         marker.pose.orientation = q;
         marker.scale.x = 0.9;
         marker.scale.y = 0.9;
@@ -204,13 +204,13 @@ void WaypointsLoader::visualizeNewWaypoints() {
 
         visualization_msgs::msg::Marker marker_info;
         marker_info.header.stamp = this->now();
-        marker_info.header.frame_id = "map";
+        marker_info.header.frame_id = "base_footprint";
         marker_info.id = i + 2000;
         marker_info.type = visualization_msgs::msg::Marker::TEXT_VIEW_FACING;
         marker_info.action = visualization_msgs::msg::Marker::ADD;
         marker_info.pose.position.x = waypoints[i](0);  // Assuming x is the first element
         marker_info.pose.position.y = waypoints[i](1);
-        marker_info.pose.position.z = waypoints[i](2) -1.5;
+        marker_info.pose.position.z = waypoints[i](2);
         marker_info.pose.orientation = q;
         marker_info.scale.z = 0.4;
         marker_info.color.a = 1.0;

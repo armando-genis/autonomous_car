@@ -1,5 +1,4 @@
 <?xml version="1.0" ?>
-
 <robot name="dasautonomeauto" xmlns:xacro="http://www.ros.org/wiki/xacro">
     <!-- =============== Link & Joint =============== -->
     <!-- Base Footprint -->
@@ -20,12 +19,14 @@
 
     <link name="chassis_link">
         <visual>
-            <origin xyz="0 0 0" rpy="0 0 -1.5708" />
+            <origin xyz="0 0 0.2" rpy="-1.5708 0 -1.5708" />
             <geometry>
-            <mesh filename="file://$(find sdv_robot_description)/meshes/hooke.dae" scale="0.001 0.001 0.001" />
+              <!-- <mesh filename="file://$(find sdv_robot_description)/meshes/hooke.dae" scale="0.001 0.001 0.001" /> -->
+              <mesh filename="file://$(find sdv_robot_description)/meshes/hook_pix.stl" scale="0.001 0.001 0.001"/>
+
             </geometry>
             <material name="Gray">
-            <color rgba="1.0 1.0 1.0 1.0"/>
+              <color rgba="1.0 1.0 1.0 1.0"/>
             </material>
         </visual>
     </link>

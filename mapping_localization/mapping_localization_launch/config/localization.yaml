@@ -11,7 +11,7 @@
       scan_min_range: 1.0
       scan_period: 0.3
       use_pcd_map: true
-      map_path: "/home/genis/ros2/vanttec_ws/src/pcd_maps/cloudGlobal_v1.pcd"
+      map_path: "/home/genis/ros2/ros2_ws/src/mapping_localization/mapping_localization_launch/maps/cloudGlobal.pcd"
       set_initial_pose: true
       initial_pose_x: 0.0
       initial_pose_y: 0.0

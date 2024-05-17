@@ -135,7 +135,7 @@ optimalPlanner::~optimalPlanner()
 
 void optimalPlanner::obstacleDataCallback(const lidar_msgs::msg::ObstacleData::SharedPtr msg)
 {
-    auto init_time = std::chrono::system_clock::now();
+    // auto init_time = std::chrono::system_clock::now();
     // RCLCPP_INFO(this->get_logger(), "\033[1;31m----> obstacleDataCallback.\033[0m");
 
     hull_vector.clear();
@@ -174,10 +174,10 @@ void optimalPlanner::obstacleDataCallback(const lidar_msgs::msg::ObstacleData::S
 
     publishOccupancyGrid();
 
-    auto execution_time = std::chrono::duration_cast<std::chrono::milliseconds>( std::chrono::system_clock::now() - init_time) .count();
+    // auto execution_time = std::chrono::duration_cast<std::chrono::milliseconds>( std::chrono::system_clock::now() - init_time) .count();
 
-    RCLCPP_INFO(this->get_logger(),"\033[1;31m----> Planar Segmentation callback finished in %ld ms. \033[0m", execution_time);
-    RCLCPP_INFO(this->get_logger(),"\033[1;31m----> hull size %d ms. \033[0m", hull_vector.size());
+    // RCLCPP_INFO(this->get_logger(),"\033[1;31m----> Planar Segmentation callback finished in %ld ms. \033[0m", execution_time);
+    // RCLCPP_INFO(this->get_logger(),"\033[1;31m----> hull size %d ms. \033[0m", hull_vector.size());
 
     
 }
@@ -453,11 +453,11 @@ void optimalPlanner::line_steering_wheels_calculation(){
     lane_maker.scale.z = 0.5; 
     lane_maker.color.a = 1.0; 
 
-
-    for (size_t i = 0; i < collision_vector.size(); ++i)
-    {
-        RCLCPP_INFO(this->get_logger(), "Collision Vector at index %zu: %s", i, collision_vector[i] ? "true" : "false");
-    }
+    // for debugging purposes
+    // for (size_t i = 0; i < collision_vector.size(); ++i)
+    // {
+    //     RCLCPP_INFO(this->get_logger(), "Collision Vector at index %zu: %s", i, collision_vector[i] ? "true" : "false");
+    // }
 
     if(collision_detected){
         lane_maker.color.r = 1.0;  
