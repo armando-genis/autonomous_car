@@ -12,14 +12,14 @@
     <!--  BASE FOOTPRINT  -->
     <link name="base_footprint"/>
     <joint name="base_link_joint" type="fixed">
-        <origin rpy="0 0 0" xyz="0 0 -0.1"/>
+        <origin rpy="0 0 0" xyz="0 0 -0.38"/>
         <parent link="chassis_link"/>
         <child link="base_footprint"/>
     </joint>
 
     <link name="chassis_link">
         <visual>
-            <origin xyz="0 0 0.2" rpy="-1.5708 0 -1.5708" />
+            <origin xyz="0 0 0.0" rpy="-1.5708 0 -1.5708" />
             <geometry>
               <!-- <mesh filename="file://$(find sdv_robot_description)/meshes/hooke.dae" scale="0.001 0.001 0.001" /> -->
               <mesh filename="file://$(find sdv_robot_description)/meshes/hook_pix.stl" scale="0.001 0.001 0.001"/>
@@ -32,13 +32,22 @@
     </link>
 
 
-  <link name="rslidar"/>
+  <!-- <link name="rslidar"/>
 
   <joint name="rslidar_base_mount_joint" type="fixed">
     <origin xyz="0 0 1.2" rpy="0 0 0" />
     <parent link="chassis_link"/>
     <child link="rslidar"/>
+  </joint> -->
+
+  <link name="velodyne"/>
+
+  <joint name="rslidar_base_mount_joint" type="fixed">
+    <origin xyz="0 0 1.23" rpy="0 0 0" />
+    <parent link="chassis_link"/>
+    <child link="velodyne"/>
   </joint>
+
 
 
   <link name="warning_obstacle"/>

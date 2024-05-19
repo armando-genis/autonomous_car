@@ -95,8 +95,8 @@ VoxelGrid::VoxelGrid(/* args */): Node("voxel_grid_filter")
     this->get_parameter("voxel_condition", voxel_condition);
 
 
-    sub_ = this->create_subscription<sensor_msgs::msg::PointCloud2>("/rslidar_points", 10, std::bind(&VoxelGrid::pointCloudCallback, this, std::placeholders::_1));
-    // sub_ = this->create_subscription<sensor_msgs::msg::PointCloud2>("/velodyne_points", 10, std::bind(&VoxelGrid::pointCloudCallback, this, std::placeholders::_1));
+    // sub_ = this->create_subscription<sensor_msgs::msg::PointCloud2>("/rslidar_points", 10, std::bind(&VoxelGrid::pointCloudCallback, this, std::placeholders::_1));
+    sub_ = this->create_subscription<sensor_msgs::msg::PointCloud2>("/velodyne_points", 10, std::bind(&VoxelGrid::pointCloudCallback, this, std::placeholders::_1));
 
 
     // down_sampling_pub_ = this->create_publisher<sensor_msgs::msg::PointCloud2>("points_down_sampling", 10);
