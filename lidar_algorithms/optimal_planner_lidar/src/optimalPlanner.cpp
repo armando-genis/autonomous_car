@@ -117,7 +117,7 @@ optimalPlanner::optimalPlanner(/* args */): Node("optimal_planner_node")
 
     yaw_car_sub_ = this->create_subscription<std_msgs::msg::Float64>("/yaw_car", 10, std::bind(&optimalPlanner::yawCarCallback, this, std::placeholders::_1));
 
-    lane_publisher_ = this->create_publisher<nav_msgs::msg::Path>("lane", 10);
+    lane_publisher_ = this->create_publisher<nav_msgs::msg::Path>("lane_car", 10);
 
     lane_steering_publisher_ = this->create_publisher<visualization_msgs::msg::Marker>("steering_lane", 10);
 
@@ -423,7 +423,7 @@ void optimalPlanner::line_steering_wheels_calculation(){
     // RCLCPP_INFO(this->get_logger(), "Size of y_new: %d", y_new.size());
 
     std::vector<double> segment_x, segment_y;
-    extract_segment_cubic_lines(x_new, y_new, segment_x, segment_y, 4);
+    extract_segment_cubic_lines(x_new, y_new, segment_x, segment_y, 5);
 
     // Publish the lane
     nav_msgs::msg::Path path;
@@ -432,6 +432,7 @@ void optimalPlanner::line_steering_wheels_calculation(){
 
     for (size_t i = 0; i < x_new.size(); ++i) {
         geometry_msgs::msg::PoseStamped pose;
+        pose.header.frame_id = "base_footprint";
         pose.pose.position.x = x_new[i];
         pose.pose.position.y = y_new[i];
         path.poses.push_back(pose);
