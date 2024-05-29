@@ -32,23 +32,21 @@
     </link>
 
 
-  <!-- <link name="rslidar"/>
-
-  <joint name="rslidar_base_mount_joint" type="fixed">
-    <origin xyz="0 0 1.2" rpy="0 0 0" />
-    <parent link="chassis_link"/>
-    <child link="rslidar"/>
-  </joint> -->
-
-  <link name="velodyne"/>
+  <link name="rslidar"/>
 
   <joint name="rslidar_base_mount_joint" type="fixed">
     <origin xyz="0 0 1.23" rpy="0 0 0" />
     <parent link="chassis_link"/>
-    <child link="velodyne"/>
+    <child link="rslidar"/>
   </joint>
 
+  <link name="velodyne"/>
 
+  <joint name="velodyne_base_mount_joint" type="fixed">
+    <origin xyz="0 0 1.23" rpy="0 0 0" />
+    <parent link="chassis_link"/>
+    <child link="velodyne"/>
+  </joint>
 
   <link name="warning_obstacle"/>
 

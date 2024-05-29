@@ -36,6 +36,9 @@ private:
     vector<std::vector<geometry_msgs::msg::Point>> hull_vector;
     vector<Eigen::VectorXd> waypoints; // [x, y, z]
 
+
+    std::vector<std::vector<double>> obstacles;
+
     // Callbacks
     void arrayObstacleCallback(const std_msgs::msg::Int8MultiArray::SharedPtr msg);
     void obstacleDataCallback(const lidar_msgs::msg::ObstacleData::SharedPtr msg);
@@ -130,17 +133,17 @@ void FranetFrame::waypoints_callback(const visualization_msgs::msg::MarkerArray:
     }
 
     // Convert hull_vector to obstacles based on obstacle_bool_array_
-    // std::vector<std::vector<double>> obstacles;
-    // for (size_t i = 0; i < hull_vector.size(); ++i) {
-    //     if (obstacle_bool_array_[i]) {
-    //         for (const auto& point : hull_vector[i]) {
-    //             obstacles.push_back({point.x, point.y});
-    //             RCLCPP_INFO(this->get_logger(), "Obstacle at (%.6f, %.6f)", point.x, point.y);
-    //         }
-    //     }
-    // }
+    std::vector<std::vector<double>> obstacles;
+    for (size_t i = 0; i < hull_vector.size(); ++i) {
+        if (obstacle_bool_array_[i]) {
+            for (const auto& point : hull_vector[i]) {
+                obstacles.push_back({point.x, point.y});
+                RCLCPP_INFO(this->get_logger(), "Obstacle at (%.6f, %.6f)", point.x, point.y);
+            }
+        }
+    }
 
-    std::vector<std::vector<double>> obstacles = {{10, 0,}, {60, 7.93}, {25.57, 0}, {94.42,-4}};
+    // std::vector<std::vector<double>> obstacles = {{10, 0,}, {60, 7.93}, {25.57, 0}, {94.42,-4}};
 
     RCLCPP_INFO(this->get_logger(), "\033[1;36m----> Obstacles generated. Size: %zu\033[0m", obstacles.size());
 
@@ -151,16 +154,17 @@ void FranetFrame::waypoints_callback(const visualization_msgs::msg::MarkerArray:
 
     if (optimalPath.d.size() > 1 && optimalPath.s.size() > 1 && optimalPath.world.size() > 1) {
         RCLCPP_INFO(this->get_logger(), "\033[1;36m----> optimal trajectory calculated.\033[0m");
-        d0 = optimalPath.d[1][0];
-        dv0 = optimalPath.d[1][1];
-        da0 = optimalPath.d[1][2];
-        s0 = optimalPath.s[1][0];
-        sv0 = optimalPath.s[1][1];
+        // d0 = optimalPath.d[1][0];
+        // dv0 = optimalPath.d[1][1];
+        // da0 = optimalPath.d[1][2];
+        // s0 = optimalPath.s[1][0];
+        // sv0 = optimalPath.s[1][1];
 
-        x = optimalPath.world[1][0];
-        y = optimalPath.world[1][1];
+        // x = optimalPath.world[1][0];
+        // y = optimalPath.world[1][1];
         // Publish optimal path
         publishOptimalFrenetPath(optimalPath);
+
     } else {
         RCLCPP_ERROR(this->get_logger(), "optimalPath does not have enough points.");
     }
