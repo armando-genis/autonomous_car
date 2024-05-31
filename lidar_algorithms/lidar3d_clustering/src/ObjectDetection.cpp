@@ -60,7 +60,6 @@ private:
 
     HungarianTracker tracker_;
     std::vector<BBox> prev_boxes_; // Store previous boxes
-    unordered_map<string, int> marker_id_map;
 
 
 
@@ -92,7 +91,7 @@ public:
     ~ObjectDetection();
 };
 // lower left, upper left, upper right, lower rigth   ->   y, x
-ObjectDetection::ObjectDetection(/* args */) : Node("lidar3d_clustering_node"), tracker_(3.5, 1.5)
+ObjectDetection::ObjectDetection(/* args */) : Node("lidar3d_clustering_node"), tracker_(3.5, 3.5)
 {
     // Parameters
     this->declare_parameter("GROUND_THRESHOLD", 0.2);
@@ -204,12 +203,13 @@ void ObjectDetection::pointCloudCallback(const sensor_msgs::msg::PointCloud2::Sh
 
 
             visualization_msgs::msg::MarkerArray centroid_markers;
+            int id = 0;
             for (const auto& track : tracker_.getTracks()) {
+
                 visualization_msgs::msg::Marker marker;
                 marker.header.frame_id = "velodyne";
-                marker.header.stamp = this->now();
                 marker.ns = "centroids";
-                marker.id = marker_id_map["centroids"]++;
+                marker.id = id++;
                 marker.type = visualization_msgs::msg::Marker::TEXT_VIEW_FACING;
                 marker.action = visualization_msgs::msg::Marker::ADD;
                 marker.pose.position.x = track.centroid.x();
@@ -227,13 +227,24 @@ void ObjectDetection::pointCloudCallback(const sensor_msgs::msg::PointCloud2::Sh
                 marker.text = std::to_string(track.id);
                 centroid_markers.markers.push_back(marker);
 
+                // publish as log the id 
                 RCLCPP_INFO(this->get_logger(), "Track ID: %d", track.id);
+
+
             }
 
+            // Publish the new markers
             centroid_marker_publisher_->publish(centroid_markers);
+
             RCLCPP_INFO(this->get_logger(), "Updating previous boxes.");
             prev_boxes_ = curr_boxes;
+
+
+            // ==========================================================================
+
+            // print the size of the trakers
             RCLCPP_INFO(this->get_logger(), "Number of tracks: %zu", tracker_.getTracks().size());
+            // print the size of the centroids_markers
             RCLCPP_INFO(this->get_logger(), "Number of centroids markers: %zu", centroid_markers.markers.size());
 
             // RCLCPP_INFO(this->get_logger(), "Number of clusters: %zu", clusters.size());
