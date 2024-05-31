@@ -20,7 +20,7 @@ private:
         publisher_->publish(message);
         RCLCPP_INFO(this->get_logger(), "Publishing: '%f'", message.data);
         current_yaw_ += yaw_increment_;
-        if (current_yaw_ > 0.3 || current_yaw_ < -0.3)
+        if (current_yaw_ > 0.6 || current_yaw_ < -0.6)
         {
             yaw_increment_ *= -1;  // Change direction
         }

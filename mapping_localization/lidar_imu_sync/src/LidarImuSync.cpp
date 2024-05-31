@@ -80,11 +80,9 @@ LidarImuSync::LidarImuSync(/* args */) : Node("lidar_imu_sync")
 
   // initialize front and rear lidar subscriber objects
   lidar_subscriber_ =
-      std::make_unique<message_filters::Subscriber<PointCloudMsg>>(this,
-                                                                   "/velodyne_points");
+      std::make_unique<message_filters::Subscriber<PointCloudMsg>>(this, "/velodyne_points");
   imu_subscriber_ =
-      std::make_unique<message_filters::Subscriber<ImuMsg>>(this,
-                                                                "/vectornav/imu");
+      std::make_unique<message_filters::Subscriber<ImuMsg>>(this,"/imu/data_imu_golfcar");
 
   // initialize message filter stuffs
   point_cloud_imu_synchronizer_ =

@@ -278,24 +278,24 @@ void optimalPlanner::publishOccupancyGrid()
 vector<pair<double, double>> optimalPlanner::calculate_trajectory(double steering_angle, double wheelbase, int num_points)
 {
     vector<pair<double, double>> path;
+    double start_offset = 1.5; // 0.5 meters offset in front of the car
 
     if (fabs(steering_angle) < 1e-6) {
-        double step_length = 0.5; 
+        double step_length = 0.5;
         for (int i = 0; i < num_points; ++i) {
-            path.push_back(make_pair(i * step_length, 0.0));
+            path.push_back(make_pair(start_offset + i * step_length, 0.0));
         }
     } else {
         double radius = wheelbase / tan(fabs(steering_angle));
-        double angular_step = M_PI / 2 / num_points; 
+        double angular_step = M_PI / 2 / num_points;
 
         double theta = 0; // Starting angle
         for (int i = 0; i <= num_points; ++i) {
-            
-            double x = radius * sin(theta);
+            double x = radius * sin(theta) + start_offset; // Start 0.5 meters in front
             double y = radius * (1 - cos(theta));
 
             if (steering_angle < 0) {
-                y = -y; 
+                y = -y;
             }
 
             path.push_back(make_pair(x, y));
@@ -305,6 +305,9 @@ vector<pair<double, double>> optimalPlanner::calculate_trajectory(double steerin
 
     return path;
 }
+
+
+
 
 double optimalPlanner::calculate_path_length(const std::vector<std::pair<double, double>>& path) {
     double total_length = 0.0;

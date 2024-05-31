@@ -39,77 +39,9 @@
 using namespace std;
 
 #include "obstacle_detector_2.hpp"
+#include "HungarianTracker.hpp"
+#include "bbox.hpp"
 
-struct BBox
-{
-    float x_min;
-    float x_max;
-    float y_min;
-    float y_max;
-    float z_min;
-    float z_max;
-    double r = 42.0 / 255.0;
-    double g = 157.0 / 255.0;
-    double b = 244.0 / 255.0;
-};
-
-
-struct Point {
-    float x, y;
-};
-
-
-struct Zone {
-    std::vector<Point> corners; // Four corners of the zone
-
-    Zone(const Point& p1, const Point& p2, const Point& p3, const Point& p4) {
-        corners.push_back(p1);
-        corners.push_back(p2);
-        corners.push_back(p3);
-        corners.push_back(p4);
-    }
-
-    bool contains(const pcl::PointXYZ& point) const {
-        int count = 0;
-        size_t n = corners.size();
-
-        for (size_t i = 0; i < n; i++) {
-            size_t j = (i + 1) % n;
-            if (isIntersecting(point, corners[i], corners[j])) {
-                count++;
-            }
-        }
-
-        return count % 2 == 1; // Inside if odd number of intersections
-    }
-
-private:
-    bool isIntersecting(const pcl::PointXYZ& p_orig, const Point& p1, const Point& p2) const {
-        Point p = {p_orig.x, p_orig.y};
-
-        if (p.y == p1.y || p.y == p2.y) {
-            p.y += 0.0001; 
-        }
-
-        if (p.y < std::min(p1.y, p2.y) || p.y > std::max(p1.y, p2.y)) {
-            return false;
-        }
-
-        if (p.x > std::max(p1.x, p2.x)) {
-            return true;
-        }
-
-        if (p.x < std::min(p1.x, p2.x)) {
-            return false;
-        }
-
-        double slope = (p2.y - p1.y) / (p2.x - p1.x);
-        double y_intercept = p1.y - slope * p1.x;
-        double intersect_x = (p.y - y_intercept) / slope;
-
-        return p.x < intersect_x;
-    }
-};
 
 
 class ObjectDetection: public rclcpp::Node
@@ -120,39 +52,26 @@ private:
     float CLUSTER_THRESH;
     int CLUSTER_MAX_SIZE;
     int CLUSTER_MIN_SIZE;
-    size_t obstacle_id_;
 
     bool USE_PCA_BOX;
     float DISPLACEMENT_THRESH;
     float IOU_THRESH;
     bool USE_TRACKING;
-    std::vector<Box> curr_boxes_; 
-    std::vector<Box> prev_boxes_;
 
-    Zone front_zone;
-    Zone front_zone_warning;
+    HungarianTracker tracker_;
+    std::vector<BBox> prev_boxes_; // Store previous boxes
+    unordered_map<string, int> marker_id_map;
 
-    int32_t int_side_value_ = 0;
-    int32_t int_warining_value = 0;
-    std_msgs::msg::Int32 message_int_warining_value;
+
+
 
 
     vector<std::vector<geometry_msgs::msg::Point>> hull_vector;
-
-
-
     std::shared_ptr<lidar_obstacle_detector::ObstacleDetector<pcl::PointXYZ>> obstacle_detector;
 
-    void box3dcreation(std::vector<pcl::PointCloud<pcl::PointXYZ>::Ptr>&& cloud_clusters, const std_msgs::msg::Header& header);
-    void publisherboxes(std::vector<BBox>&& bboxes, const std_msgs::msg::Header& header);
-    void warnning_display(const int warning_code);
-    void check_zones_all_points_version2(std::vector<pcl::PointCloud<pcl::PointXYZ>::Ptr>&& cloud_clusters);
-    void publish_zone(const Zone& zone1, const Zone& zone2);
-    visualization_msgs::msg::Marker create_zone_marker(const Zone& zone, int id, const std::string& color);
-    void side_topic_callback(const std_msgs::msg::Int32::SharedPtr msg);
-
+    // functions
     void convex_hull(std::vector<pcl::PointCloud<pcl::PointXYZ>::Ptr>&& cloud_clusters);
-
+    BBox get_futures_clouster(const pcl::PointCloud<pcl::PointXYZ>::Ptr& cluster);
 
 
 
@@ -161,19 +80,11 @@ private:
 
     // Subscriber & Publisher
     rclcpp::Subscription<sensor_msgs::msg::PointCloud2>::SharedPtr sub_points_cloud_;
-    rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr marker_pub_next;
-    rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr wall_warning;
-    rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr zone_publisher_;
-    rclcpp::Publisher<std_msgs::msg::Int32>::SharedPtr publisher_warning_;
-
     rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr hull_publisher_;
-
-
-    rclcpp::Publisher<std_msgs::msg::Float32MultiArray>::SharedPtr hull_array_;
-
-
     rclcpp::Publisher<lidar_msgs::msg::ObstacleData>::SharedPtr obstacle_data_publisher_;
     rclcpp::Publisher<geometry_msgs::msg::PointStamped>::SharedPtr centroid_publisher_;
+    rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr centroid_marker_publisher_;
+
 
 
 public:
@@ -181,9 +92,8 @@ public:
     ~ObjectDetection();
 };
 // lower left, upper left, upper right, lower rigth   ->   y, x
-ObjectDetection::ObjectDetection(/* args */) : Node("lidar3d_clustering_node"), front_zone(Point{0.0,-1.2}, Point{1.5,-1.2}, Point{1.5,1.2}, Point{0.0,1.2}), front_zone_warning(Point{1.6,-1.2}, Point{3.0,-1.2}, Point{3.0,1.2}, Point{1.6,1.2}) 
+ObjectDetection::ObjectDetection(/* args */) : Node("lidar3d_clustering_node"), tracker_(3.5, 1.5)
 {
-    // front_zone(Point{0.0,-1.2}, Point{2.0,-1.2}, Point{2.0,1.2}, Point{0.0,1.2}), front_zone_warning(Point{-1.2, 2.1}, Point{-1.2, 4.0}, Point{1.2, 4.0}, Point{1.2, 2.1}) 
     // Parameters
     this->declare_parameter("GROUND_THRESHOLD", 0.2);
     this->declare_parameter("CLUSTER_THRESH", 0.5);
@@ -210,29 +120,19 @@ ObjectDetection::ObjectDetection(/* args */) : Node("lidar3d_clustering_node"), 
     sub_points_cloud_ = this->create_subscription<sensor_msgs::msg::PointCloud2>("/ground_removal", 10, std::bind(&ObjectDetection::pointCloudCallback, this, std::placeholders::_1)); // roi points cloud
 
     // Create publisher
-    // ground_seg_pub_ = this->create_publisher<sensor_msgs::msg::PointCloud2>("ground_points", 10); // ground points
-    marker_pub_next = this->create_publisher<visualization_msgs::msg::MarkerArray>("/object_bounding_box", 10); // detector objects
-    wall_warning = this->create_publisher<visualization_msgs::msg::Marker>("warning_visualization_tool", 10);
-    // Create point processor
-    obstacle_detector = std::make_shared<lidar_obstacle_detector::ObstacleDetector<pcl::PointXYZ>>();
 
-    zone_publisher_ = this->create_publisher<visualization_msgs::msg::MarkerArray>("visualization_zone", 10);
-    publisher_warning_ = this->create_publisher<std_msgs::msg::Int32>("warning_status", 10);
-
-    // hull_publisher_ = this->create_publisher<visualization_msgs::msg::Marker>("convex_hull_marker", 10);
     hull_publisher_ = this->create_publisher<visualization_msgs::msg::MarkerArray>("convex_hull_marker_array", 10);
-
-
-    hull_array_ = this->create_publisher<std_msgs::msg::Float32MultiArray>("convex_hull_array", 10);
 
     obstacle_data_publisher_ = this->create_publisher<lidar_msgs::msg::ObstacleData>("obstacle_data", 10);
 
     centroid_publisher_ = this->create_publisher<geometry_msgs::msg::PointStamped>("centroid_topic", 10);
 
+    centroid_marker_publisher_ = this->create_publisher<visualization_msgs::msg::MarkerArray>("centroid_marker_array", 10);
 
-    obstacle_id_ = 0;
-    // front_zone = Zone(Point{0.0, -1.0}, Point{0.0, 1.0}, Point{2.0, 1.0}, Point{2.0, -1.0});
-    // front_zone_warning = Zone(Point{2.0, -1.0}, Point{2.0, 1.0}, Point{4.0, 1.0}, Point{4.0, -1.0});
+
+    // Create point processor
+    obstacle_detector = std::make_shared<lidar_obstacle_detector::ObstacleDetector<pcl::PointXYZ>>();
+
 
 
     RCLCPP_INFO(this->get_logger(), "\033[1;32m----> lidar3d_Clustering_node initialized.\033[0m");
@@ -275,8 +175,6 @@ void ObjectDetection::pointCloudCallback(const sensor_msgs::msg::PointCloud2::Sh
 
         // RCLCPP_INFO(this->get_logger(), "Number of points in the input cloud: %zu", input_cloud->size());
 
-
-        // auto segmented_clouds = obstacle_detector->segmentPlane(input_cloud, 100, GROUND_THRESHOLD);
         auto cloud_clusters = obstacle_detector->clustering(input_cloud, CLUSTER_THRESH, CLUSTER_MIN_SIZE, CLUSTER_MAX_SIZE);
         auto& clusters = cloud_clusters.first;
         auto& centroids = cloud_clusters.second;
@@ -284,27 +182,61 @@ void ObjectDetection::pointCloudCallback(const sensor_msgs::msg::PointCloud2::Sh
         // Proceed with further processing only if valid data is present
         if (!clusters.empty()) {
 
-            // box3dcreation(std::move(clusters), msg->header);
-
             convex_hull(std::move(clusters));
 
-            // for (size_t i = 0; i < centroids.size(); ++i) {
-            //     geometry_msgs::msg::PointStamped centroid_msg;
-            //     // centroid_msg.header.stamp = this->get_clock()->now();
-            //     centroid_msg.header.frame_id = "base_footprint"; // or another appropriate frame
-            //     centroid_msg.point.x = centroids[i].x;
-            //     centroid_msg.point.y = centroids[i].y;
-            //     centroid_msg.point.z = centroids[i].z;
+            // clean the tracker ========================================
 
-            //     centroid_publisher_->publish(centroid_msg);
-            // }
 
-            // RCLCPP_INFO(this->get_logger(), "Number of clusters: %zu", cloud_clusters.size());
+            // Prepare bounding boxes and centroids for tracking
+            std::vector<Eigen::Vector3f> eigen_centroids;
+            std::vector<BBox> curr_boxes;
+            for (const auto& centroid : centroids) {
+                eigen_centroids.push_back(Eigen::Vector3f(centroid.x, centroid.y, centroid.z));
+            }
+            for (const auto& cluster : clusters) {
+                curr_boxes.push_back(get_futures_clouster(cluster));
+            }
 
-            // check_zones_all_points_version2(std::move(clusters));
+            RCLCPP_INFO(this->get_logger(), "Tracking %zu current boxes", curr_boxes.size());
 
-            // publish_zone(front_zone, front_zone_warning);
 
+            tracker_.update(prev_boxes_, eigen_centroids, curr_boxes);
+
+
+            visualization_msgs::msg::MarkerArray centroid_markers;
+            for (const auto& track : tracker_.getTracks()) {
+                visualization_msgs::msg::Marker marker;
+                marker.header.frame_id = "velodyne";
+                marker.header.stamp = this->now();
+                marker.ns = "centroids";
+                marker.id = marker_id_map["centroids"]++;
+                marker.type = visualization_msgs::msg::Marker::TEXT_VIEW_FACING;
+                marker.action = visualization_msgs::msg::Marker::ADD;
+                marker.pose.position.x = track.centroid.x();
+                marker.pose.position.y = track.centroid.y();
+                marker.pose.position.z = track.centroid.z() + 0.5;
+                marker.pose.orientation.x = 0.0;
+                marker.pose.orientation.y = 0.0;
+                marker.pose.orientation.z = 0.0;
+                marker.pose.orientation.w = 1.0;
+                marker.scale.z = 0.4;
+                marker.color.r = 0.0;
+                marker.color.g = 1.0;
+                marker.color.b = 0.0;
+                marker.color.a = 1.0;
+                marker.text = std::to_string(track.id);
+                centroid_markers.markers.push_back(marker);
+
+                RCLCPP_INFO(this->get_logger(), "Track ID: %d", track.id);
+            }
+
+            centroid_marker_publisher_->publish(centroid_markers);
+            RCLCPP_INFO(this->get_logger(), "Updating previous boxes.");
+            prev_boxes_ = curr_boxes;
+            RCLCPP_INFO(this->get_logger(), "Number of tracks: %zu", tracker_.getTracks().size());
+            RCLCPP_INFO(this->get_logger(), "Number of centroids markers: %zu", centroid_markers.markers.size());
+
+            // RCLCPP_INFO(this->get_logger(), "Number of clusters: %zu", clusters.size());
         }
     } catch (const std::exception& e) {
         RCLCPP_ERROR(this->get_logger(), "Error processing point cloud: %s", e.what());
@@ -317,378 +249,24 @@ void ObjectDetection::pointCloudCallback(const sensor_msgs::msg::PointCloud2::Sh
 //   RCLCPP_INFO(this->get_logger(),"Planar Segmentation callback finished in %ld ms", execution_time);
 }
 
+BBox ObjectDetection::get_futures_clouster(const pcl::PointCloud<pcl::PointXYZ>::Ptr& cluster) {
+    Eigen::Vector4f min_pt, max_pt;
+    pcl::getMinMax3D<pcl::PointXYZ>(*cluster, min_pt, max_pt);
 
-void ObjectDetection::box3dcreation(std::vector<pcl::PointCloud<pcl::PointXYZ>::Ptr>&& cloud_clusters, const std_msgs::msg::Header& header)
-{
+    BBox bbox;
+    bbox.x_min = min_pt[0];
+    bbox.y_min = min_pt[1];
+    bbox.z_min = min_pt[2];
+    bbox.x_max = max_pt[0];
+    bbox.y_max = max_pt[1];
+    bbox.z_max = max_pt[2];
 
-    std::vector<BBox> bboxes;
-    
-    int num_reasonable_clusters = 0;
-    
-    for (auto& cluster : cloud_clusters)
-    {
-
-        Eigen::Vector4f min_pt, max_pt;
-        pcl::getMinMax3D<pcl::PointXYZ>(*cluster, min_pt, max_pt);
-
-        BBox bbox;
-        bbox.x_min = min_pt[0];
-        bbox.y_min = min_pt[1];
-        bbox.z_min = min_pt[2];
-        bbox.x_max = max_pt[0];
-        bbox.y_max = max_pt[1];
-        bbox.z_max = max_pt[2];
-
-        bboxes.push_back(bbox);
-        num_reasonable_clusters++;
-
-    }
-
-    publisherboxes(std::move(bboxes), header);
-
+    return bbox;
 }
 
-void ObjectDetection::publisherboxes(std::vector<BBox>&& bboxes, const std_msgs::msg::Header& header){
-//==================================== Drawing Boxes  ====================================
-
-    visualization_msgs::msg::MarkerArray marker_array;
-
-
-    int id = 0;
-    const std_msgs::msg::Header& inp_header = header;
-
-    geometry_msgs::msg::Quaternion neutral_orientation;
-    neutral_orientation.x = 0.0;
-    neutral_orientation.y = 0.0;
-    neutral_orientation.z = 0.0;
-    neutral_orientation.w = 1.0; 
-
-
-    // Create a marker for each bounding box
-    // wall_marker.header.frame_id = "detector_wall";
-
-
-
-    for (const auto& bbox : bboxes)
-    {
-        // Create the marker for the top square
-        visualization_msgs::msg::Marker top_square_marker;
-        // top_square_marker.header = inp_header;
-
-        top_square_marker.header.frame_id = "rslidar";
-        top_square_marker.ns = "bounding_boxes";
-        top_square_marker.id = id++;
-        top_square_marker.type = visualization_msgs::msg::Marker::LINE_STRIP;
-        top_square_marker.action = visualization_msgs::msg::Marker::ADD;
-        top_square_marker.pose.orientation = neutral_orientation;
-        top_square_marker.scale.x = 0.06;
-        top_square_marker.color.r = bbox.r;
-        top_square_marker.color.g = bbox.g;
-        top_square_marker.color.b = bbox.b;
-        top_square_marker.color.a = 1.0;
-
-        // Add the points to the top square marker
-        geometry_msgs::msg::Point p1, p2, p3, p4;
-        p1.x = bbox.x_max; p1.y = bbox.y_max; p1.z = bbox.z_max;
-        p2.x = bbox.x_min; p2.y = bbox.y_max; p2.z = bbox.z_max;
-        p3.x = bbox.x_min; p3.y = bbox.y_min; p3.z = bbox.z_max;
-        p4.x = bbox.x_max; p4.y = bbox.y_min; p4.z = bbox.z_max;
-        top_square_marker.points.push_back(p1);
-        top_square_marker.points.push_back(p2);
-        top_square_marker.points.push_back(p3);
-        top_square_marker.points.push_back(p4);
-        top_square_marker.points.push_back(p1);
-
-        // Add the top square marker to the array
-        marker_array.markers.push_back(top_square_marker);
-
-        // Create the marker for the bottom square
-        visualization_msgs::msg::Marker bottom_square_marker;
-        // bottom_square_marker.header = inp_header;
-        bottom_square_marker.header.frame_id = "rslidar";
-
-        bottom_square_marker.ns = "bounding_boxes";
-        bottom_square_marker.id = id++;
-        bottom_square_marker.type = visualization_msgs::msg::Marker::LINE_STRIP;
-        bottom_square_marker.action = visualization_msgs::msg::Marker::ADD;
-        bottom_square_marker.pose.orientation = neutral_orientation;
-        bottom_square_marker.scale.x = 0.04;
-        bottom_square_marker.color.r = bbox.r;
-        bottom_square_marker.color.g = bbox.g;
-        bottom_square_marker.color.b = bbox.b;
-        bottom_square_marker.color.a = 1.0;
-
-        // Add the points to the bottom square marker
-        geometry_msgs::msg::Point p5, p6, p7, p8;
-        p5.x = bbox.x_max; p5.y = bbox.y_max; p5.z = bbox.z_min;
-        p6.x = bbox.x_min; p6.y = bbox.y_max; p6.z = bbox.z_min;
-        p7.x = bbox.x_min; p7.y = bbox.y_min; p7.z = bbox.z_min;
-        p8.x = bbox.x_max; p8.y = bbox.y_min; p8.z = bbox.z_min;
-
-        bottom_square_marker.points.push_back(p5);
-        bottom_square_marker.points.push_back(p6);
-        bottom_square_marker.points.push_back(p7);
-        bottom_square_marker.points.push_back(p8);
-        bottom_square_marker.points.push_back(p5); // connect the last point to the first point to close the square
-
-        // Add the bottom square marker to the marker array
-        marker_array.markers.push_back(bottom_square_marker);
-
-
-        // Create the marker for the lines connecting the top and bottom squares
-        visualization_msgs::msg::Marker connecting_lines_marker;
-        // connecting_lines_marker.header = inp_header;
-        connecting_lines_marker.header.frame_id = "rslidar";
-
-        connecting_lines_marker.ns = "bounding_boxes";
-        connecting_lines_marker.id = id++;
-        connecting_lines_marker.type = visualization_msgs::msg::Marker::LINE_LIST;
-        connecting_lines_marker.action = visualization_msgs::msg::Marker::ADD;
-        connecting_lines_marker.pose.orientation = neutral_orientation;
-        connecting_lines_marker.scale.x = 0.04;
-        connecting_lines_marker.color.r = bbox.r;
-        connecting_lines_marker.color.g = bbox.g;
-        connecting_lines_marker.color.b = bbox.b;
-        connecting_lines_marker.color.a = 0.5;
-
-        // Add the points to the connecting lines marker
-        connecting_lines_marker.points.push_back(p1);
-        connecting_lines_marker.points.push_back(p5);
-
-        connecting_lines_marker.points.push_back(p2);
-        connecting_lines_marker.points.push_back(p6);
-
-        connecting_lines_marker.points.push_back(p3);
-        connecting_lines_marker.points.push_back(p7);
-
-        connecting_lines_marker.points.push_back(p4);
-        connecting_lines_marker.points.push_back(p8);
-
-        // Add the connecting lines marker to the marker array
-        marker_array.markers.push_back(connecting_lines_marker);
-
-
-        // Create a marker for the corners
-        visualization_msgs::msg::Marker corner_marker;
-        // corner_marker.header = inp_header;
-        corner_marker.header.frame_id = "rslidar";
-
-        corner_marker.ns = "bounding_boxes";
-        corner_marker.id = id++;
-        corner_marker.type = visualization_msgs::msg::Marker::SPHERE;
-        corner_marker.action = visualization_msgs::msg::Marker::ADD;
-        corner_marker.pose.orientation = neutral_orientation;
-        corner_marker.scale.x = 0.15;
-        corner_marker.scale.y = 0.15;
-        corner_marker.scale.z = 0.15;
-        corner_marker.color.r = bbox.r;
-        corner_marker.color.g = bbox.g;
-        corner_marker.color.b = bbox.b;
-        corner_marker.color.a = 0.64;
-
-        // Create a sphere for each corner and add it to the marker array
-
-        corner_marker.pose.position = p1;
-        corner_marker.id = id++;
-        marker_array.markers.push_back(corner_marker);
-
-        corner_marker.pose.position = p2;
-        corner_marker.id = id++;
-        marker_array.markers.push_back(corner_marker);
-
-        corner_marker.pose.position = p3;
-        corner_marker.id = id++;
-        marker_array.markers.push_back(corner_marker);
-
-        corner_marker.pose.position = p4;
-        corner_marker.id = id++;
-        marker_array.markers.push_back(corner_marker);
-
-        corner_marker.pose.position = p5;
-        corner_marker.id = id++;
-        marker_array.markers.push_back(corner_marker);
-
-        corner_marker.pose.position = p6;
-        corner_marker.id = id++;
-        marker_array.markers.push_back(corner_marker);
-
-        corner_marker.pose.position = p7;
-        corner_marker.id = id++;
-        marker_array.markers.push_back(corner_marker);
-
-        corner_marker.pose.position = p8;
-        corner_marker.id = id++;
-        marker_array.markers.push_back(corner_marker);
-
-
-        rclcpp::Duration marker_lifetime = rclcpp::Duration::from_seconds(3);
-
-
-        top_square_marker.lifetime = marker_lifetime;
-        bottom_square_marker.lifetime = marker_lifetime;
-        connecting_lines_marker.lifetime = marker_lifetime;
-        corner_marker.lifetime = marker_lifetime;
-
-        marker_pub_next->publish(marker_array);
-    }
-
-
-
-}
-
-
-
-
-void ObjectDetection::warnning_display(const int warning_code)
-{
-
-    visualization_msgs::msg::Marker wall_marker;
-    wall_marker.header.frame_id = "warning_obstacle";
-    wall_marker.header.stamp = rclcpp::Clock().now();
-    wall_marker.ns = "wall";
-    wall_marker.id = 0;
-    wall_marker.type = visualization_msgs::msg::Marker::CUBE;
-    wall_marker.action = visualization_msgs::msg::Marker::ADD;
-    wall_marker.pose.position.x = 0.0;
-    wall_marker.pose.position.y = 0.0;
-    wall_marker.pose.position.z = 0.0;
-    wall_marker.pose.orientation.x = 0.0;
-    wall_marker.pose.orientation.y = 0.0;
-    wall_marker.pose.orientation.z = 0.0;
-    wall_marker.pose.orientation.w = 1.0;
-    wall_marker.scale.x = 0.25;
-    wall_marker.scale.y = 0.25;
-    wall_marker.scale.z = 0.25;
-    wall_marker.color.a = 0.7;
-
-    if (warning_code == 1) {
-        wall_marker.color.r = 1.0;
-        wall_marker.color.g = 0.0;
-        wall_marker.color.b = 0.0;
-    } else if (warning_code == 2) {
-        wall_marker.color.r = 1.0;
-        wall_marker.color.g = 1.0;
-        wall_marker.color.b = 0.0;
-    } else if (warning_code == 3) {
-        wall_marker.color.r = 0.0;
-        wall_marker.color.g = 1.0;
-        wall_marker.color.b = 0.0;
-    } else {
-        wall_marker.color.r = 0.0;
-        wall_marker.color.g = 1.0;
-        wall_marker.color.b = 0.0;
-    }
-
-    wall_warning->publish(wall_marker);
-
-}
-
-
-
-
-void ObjectDetection::check_zones_all_points_version2(std::vector<pcl::PointCloud<pcl::PointXYZ>::Ptr>&& cloud_clusters) 
-{
-
-   int highest_warning_code = 4; // To store the highest severity warning code
-
-    for (const auto& cluster : cloud_clusters) 
-    {
-        if (cluster->empty()) continue;
-
-        bool zone_checked = false; // Flag to break out of the loop once a point in a zone is found
-
-        for (const auto& point : cluster->points) {
-        
-            if (front_zone.contains(point)) {
-                highest_warning_code = std::min(highest_warning_code, 1); // Obstacle detected in red zone
-                zone_checked = true;
-                RCLCPP_INFO(this->get_logger(), "[WARNING 220] Obstacle detected in red zone.");
-                break; // No need to check further points in this cluster
-            } else if (front_zone_warning.contains(point)) {
-                highest_warning_code = std::min(highest_warning_code, 2); // Obstacle detected in yellow zone
-                zone_checked = true;
-                RCLCPP_INFO(this->get_logger(), "[WARNING 330] Obstacle detected in yellow zone.");
-                break; // No need to check further points in this cluster
-            }
-
-        }
-
-        if (zone_checked) {
-
-            continue; // Move to the next cluster
-        }
-    }
-
-    if (highest_warning_code < 4) {
-        warnning_display(highest_warning_code);
-
-
-        message_int_warining_value.data = highest_warning_code;
-        publisher_warning_->publish(message_int_warining_value);
-
-    } else {
-        RCLCPP_INFO(this->get_logger(), "[INFO 000] No obstacle detected in any zone.");
-        warnning_display(4);
-
-
-        message_int_warining_value.data = 4;
-        publisher_warning_->publish(message_int_warining_value);
-    }
-}
-
-
-void ObjectDetection::publish_zone(const Zone& zone1, const Zone& zone2) {
-    visualization_msgs::msg::MarkerArray marker_array;
-
-    // Create and add markers for each zone
-    visualization_msgs::msg::Marker marker1 = create_zone_marker(zone1, 1000, "red");
-    visualization_msgs::msg::Marker marker2 = create_zone_marker(zone2, 1001, "yellow");
-
-    marker_array.markers.push_back(marker1);
-    marker_array.markers.push_back(marker2);
-
-    // Publish the marker array
-    zone_publisher_->publish(marker_array);
-}
-
-visualization_msgs::msg::Marker ObjectDetection::create_zone_marker(const Zone& zone, int id, const std::string& color) {
-    visualization_msgs::msg::Marker marker;
-    marker.header.frame_id = "warning_obstacle"; 
-    marker.ns = "zone";
-    marker.id = id;
-    marker.type = visualization_msgs::msg::Marker::LINE_STRIP;
-    marker.action = visualization_msgs::msg::Marker::ADD;
-    marker.pose.orientation.w = 1.0;
-    marker.scale.x = 0.05; // Line width
-    marker.color.a = 1.0; // Alpha (opacity)
-
-    if (color == "yellow") {
-        marker.color.r = 1.0; marker.color.g = 1.0; marker.color.b = 0.0; // Yellow
-    } else {
-        marker.color.r = 1.0; marker.color.g = 0.0; marker.color.b = 0.0; // Red (default)
-    }
-
-    for (const auto& corner : zone.corners) {
-        geometry_msgs::msg::Point p;
-        p.x = corner.x; p.y = corner.y; p.z = 0;
-        marker.points.push_back(p);
-    }
-    marker.points.push_back(marker.points.front()); // Close the loop
-
-    return marker;
-}
-
-
-void ObjectDetection::side_topic_callback(const std_msgs::msg::Int32::SharedPtr msg)
-{
-
-    RCLCPP_INFO(this->get_logger(), "Received from /side_topic: %d", msg->data);
-    int_side_value_ = msg->data;
-}
 
 
 // ------------------------------- Convex Hull -------------------------------
-//----------------------------------------------------------------------------
 
 void ObjectDetection::convex_hull(std::vector<pcl::PointCloud<pcl::PointXYZ>::Ptr>&& cloud_clusters)
 {
@@ -782,3 +360,6 @@ int main(int argc, char** argv) {
     rclcpp::shutdown();
     return 0;
 }
+
+
+

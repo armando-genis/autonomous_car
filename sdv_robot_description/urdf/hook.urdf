@@ -26,13 +26,24 @@
 
             </geometry>
             <material name="Gray">
-              <color rgba="1.0 1.0 1.0 1.0"/>
+              <color rgba="1.0 0.0 0.0 1.0"/>
             </material>
         </visual>
     </link>
 
 
-  <link name="rslidar"/>
+  <link name="rslidar">
+  
+      <visual>
+        <origin xyz="0 0 0.0" rpy="0 0 0" />
+        <geometry>
+          <cylinder length="0.073" radius="0.04" />
+        </geometry>
+        <material name="Gray">
+          <color rgba="1.0 0.0 0.0 1.0"/>
+        </material>
+      </visual>
+  </link>
 
   <joint name="rslidar_base_mount_joint" type="fixed">
     <origin xyz="0 0 1.23" rpy="0 0 0" />

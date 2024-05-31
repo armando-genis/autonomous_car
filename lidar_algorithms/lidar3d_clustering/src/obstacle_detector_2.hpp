@@ -19,7 +19,6 @@
 #include <utility>
 #include <vector>
 
-#include "box.hpp"
 
 namespace lidar_obstacle_detector {
 template <typename PointT>
@@ -31,8 +30,6 @@ class ObstacleDetector {
         // Clustering function
         std::pair<std::vector<typename pcl::PointCloud<PointT>::Ptr>, std::vector<PointT>>
         clustering( const typename pcl::PointCloud<PointT>::ConstPtr &cloud, const float cluster_tolerance, const int min_size, const int max_size);
-
-
 
     private:
 

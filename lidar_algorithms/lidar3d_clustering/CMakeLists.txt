@@ -45,7 +45,7 @@ if(BUILD_TESTING)
   ament_lint_auto_find_test_dependencies()
 endif()
 
-add_executable(lidar3d_clustering_node src/ObjectDetection.cpp)
+add_executable(lidar3d_clustering_node src/ObjectDetection.cpp src/HungarianTracker.cpp)
 
 ament_target_dependencies(lidar3d_clustering_node rclcpp std_msgs geometry_msgs pcl_conversions sensor_msgs message_filters vision_msgs image_geometry visualization_msgs tf2_ros lidar_msgs)
 target_link_libraries(lidar3d_clustering_node Eigen3::Eigen)
