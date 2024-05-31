@@ -60,6 +60,8 @@ private:
 
     HungarianTracker tracker_;
     std::vector<BBox> prev_boxes_; // Store previous boxes
+    std::vector<Eigen::Vector3f> prev_centroids;
+
 
 
 
@@ -91,7 +93,7 @@ public:
     ~ObjectDetection();
 };
 // lower left, upper left, upper right, lower rigth   ->   y, x
-ObjectDetection::ObjectDetection(/* args */) : Node("lidar3d_clustering_node"), tracker_(3.5, 3.5)
+ObjectDetection::ObjectDetection(/* args */) : Node("lidar3d_clustering_node"), tracker_(0.01, 0.01)
 {
     // Parameters
     this->declare_parameter("GROUND_THRESHOLD", 0.2);
@@ -199,7 +201,7 @@ void ObjectDetection::pointCloudCallback(const sensor_msgs::msg::PointCloud2::Sh
             RCLCPP_INFO(this->get_logger(), "Tracking %zu current boxes", curr_boxes.size());
 
 
-            tracker_.update(prev_boxes_, eigen_centroids, curr_boxes);
+            tracker_.update(prev_boxes_, prev_centroids, eigen_centroids, curr_boxes);
 
 
             visualization_msgs::msg::MarkerArray centroid_markers;
@@ -238,6 +240,7 @@ void ObjectDetection::pointCloudCallback(const sensor_msgs::msg::PointCloud2::Sh
 
             RCLCPP_INFO(this->get_logger(), "Updating previous boxes.");
             prev_boxes_ = curr_boxes;
+            prev_centroids = eigen_centroids;
 
 
             // ==========================================================================
@@ -247,7 +250,8 @@ void ObjectDetection::pointCloudCallback(const sensor_msgs::msg::PointCloud2::Sh
             // print the size of the centroids_markers
             RCLCPP_INFO(this->get_logger(), "Number of centroids markers: %zu", centroid_markers.markers.size());
 
-            // RCLCPP_INFO(this->get_logger(), "Number of clusters: %zu", clusters.size());
+            // log the clusters.size in red color
+            RCLCPP_INFO(this->get_logger(), "\033[1;31m ----->Number of clusters: %zu\033[0m", clusters.size());
         }
     } catch (const std::exception& e) {
         RCLCPP_ERROR(this->get_logger(), "Error processing point cloud: %s", e.what());
