@@ -12,7 +12,6 @@
 #include <geometry_msgs/msg/point_stamped.hpp>
 
 
-
 #include <lidar_msgs/msg/obstacle_data.hpp>
 
 // C++
@@ -39,8 +38,9 @@
 using namespace std;
 
 #include "obstacle_detector_2.hpp"
-#include "HungarianTracker.hpp"
 #include "bbox.hpp"
+#include "HungarianTracker.hpp"
+
 
 
 
@@ -48,31 +48,30 @@ class ObjectDetection: public rclcpp::Node
 {
 private:
     // variables
-    float GROUND_THRESHOLD;
-    float CLUSTER_THRESH;
+    double GROUND_THRESHOLD;
+    double CLUSTER_THRESH;
     int CLUSTER_MAX_SIZE;
     int CLUSTER_MIN_SIZE;
-
     bool USE_PCA_BOX;
-    float DISPLACEMENT_THRESH;
-    float IOU_THRESH;
+    double DISPLACEMENT_THRESH;
+    double IOU_THRESH;
     bool USE_TRACKING;
 
-    HungarianTracker tracker_;
     std::vector<BBox> prev_boxes_; // Store previous boxes
     std::vector<Eigen::Vector3f> prev_centroids;
+    std::vector<BBox> curr_boxes;
 
+    size_t obstacle_id_ = 0;
 
+    HungarianTracker tracker;
 
-
-
-
+    
     vector<std::vector<geometry_msgs::msg::Point>> hull_vector;
     std::shared_ptr<lidar_obstacle_detector::ObstacleDetector<pcl::PointXYZ>> obstacle_detector;
 
     // functions
     void convex_hull(std::vector<pcl::PointCloud<pcl::PointXYZ>::Ptr>&& cloud_clusters);
-    BBox get_futures_clouster(const pcl::PointCloud<pcl::PointXYZ>::Ptr& cluster);
+    BBox get_futures_clouster(const pcl::PointCloud<pcl::PointXYZ>::Ptr& cluster, const int id);
 
 
 
@@ -84,7 +83,7 @@ private:
     rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr hull_publisher_;
     rclcpp::Publisher<lidar_msgs::msg::ObstacleData>::SharedPtr obstacle_data_publisher_;
     rclcpp::Publisher<geometry_msgs::msg::PointStamped>::SharedPtr centroid_publisher_;
-    rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr centroid_marker_publisher_;
+    rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr id_publishers;
 
 
 
@@ -92,19 +91,18 @@ public:
     ObjectDetection(/* args */);
     ~ObjectDetection();
 };
-// lower left, upper left, upper right, lower rigth   ->   y, x
-ObjectDetection::ObjectDetection(/* args */) : Node("lidar3d_clustering_node"), tracker_(0.01, 0.01)
+
+ObjectDetection::ObjectDetection(/* args */) : Node("lidar3d_clustering_node")
 {
     // Parameters
-    this->declare_parameter("GROUND_THRESHOLD", 0.2);
-    this->declare_parameter("CLUSTER_THRESH", 0.5);
-    this->declare_parameter("CLUSTER_MAX_SIZE", 5000);
-    this->declare_parameter("CLUSTER_MIN_SIZE", 10);
-    this->declare_parameter("USE_PCA_BOX", true);
-    this->declare_parameter("DISPLACEMENT_THRESH", 0.2);
-    this->declare_parameter("IOU_THRESH", 0.5);
-    this->declare_parameter("USE_TRACKING", true);
-    
+    this->declare_parameter("GROUND_THRESHOLD", 0.0);
+    this->declare_parameter("CLUSTER_THRESH", 0.0);
+    this->declare_parameter("CLUSTER_MAX_SIZE", 0);
+    this->declare_parameter("CLUSTER_MIN_SIZE", 0);
+    this->declare_parameter("USE_PCA_BOX", false);
+    this->declare_parameter("DISPLACEMENT_THRESH", 0.0);
+    this->declare_parameter("IOU_THRESH", 0.0);
+    this->declare_parameter("USE_TRACKING", false);
 
     // Get parameters
     this->get_parameter("GROUND_THRESHOLD", GROUND_THRESHOLD);
@@ -128,7 +126,7 @@ ObjectDetection::ObjectDetection(/* args */) : Node("lidar3d_clustering_node"), 
 
     centroid_publisher_ = this->create_publisher<geometry_msgs::msg::PointStamped>("centroid_topic", 10);
 
-    centroid_marker_publisher_ = this->create_publisher<visualization_msgs::msg::MarkerArray>("centroid_marker_array", 10);
+    id_publishers = this->create_publisher<visualization_msgs::msg::MarkerArray>("/id_publishers", 10);
 
 
     // Create point processor
@@ -139,14 +137,15 @@ ObjectDetection::ObjectDetection(/* args */) : Node("lidar3d_clustering_node"), 
     RCLCPP_INFO(this->get_logger(), "\033[1;32m----> lidar3d_Clustering_node initialized.\033[0m");
 
 
-    // Print parameters
-    // RCLCPP_INFO(this->get_logger(), "GROUND_THRESHOLD: %f", GROUND_THRESHOLD);
-    // RCLCPP_INFO(this->get_logger(), "CLUSTER_THRESH: %f", CLUSTER_THRESH);
-    // RCLCPP_INFO(this->get_logger(), "CLUSTER_MAX_SIZE: %d", CLUSTER_MAX_SIZE);
-    // RCLCPP_INFO(this->get_logger(), "CLUSTER_MIN_SIZE: %d", CLUSTER_MIN_SIZE);
-    // RCLCPP_INFO(this->get_logger(), "USE_PCA_BOX: %d", USE_PCA_BOX);
-    // RCLCPP_INFO(this->get_logger(), "DISPLACEMENT_THRESH: %f", DISPLACEMENT_THRESH);
-    // RCLCPP_INFO(this->get_logger(), "IOU_THRESH: %f", IOU_THRESH);
+    // print paraments in blue
+    RCLCPP_INFO(this->get_logger(), "\033[1;34m----> GROUND_THRESHOLD: %f\033[0m", GROUND_THRESHOLD);
+    RCLCPP_INFO(this->get_logger(), "\033[1;34m----> CLUSTER_THRESH: %f\033[0m", CLUSTER_THRESH);
+    RCLCPP_INFO(this->get_logger(), "\033[1;34m----> CLUSTER_MAX_SIZE: %d\033[0m", CLUSTER_MAX_SIZE);
+    RCLCPP_INFO(this->get_logger(), "\033[1;34m----> CLUSTER_MIN_SIZE: %d\033[0m", CLUSTER_MIN_SIZE);
+    RCLCPP_INFO(this->get_logger(), "\033[1;34m----> DISPLACEMENT_THRESH: %f\033[0m", DISPLACEMENT_THRESH);
+    RCLCPP_INFO(this->get_logger(), "\033[1;34m----> IOU_THRESH: %f\033[0m", IOU_THRESH);
+    
+
     // RCLCPP_INFO(this->get_logger(), "USE_TRACKING: %d", USE_TRACKING);
 
 }
@@ -156,9 +155,7 @@ ObjectDetection::~ObjectDetection()
 }
 
 // Point Cloud callback
-void ObjectDetection::pointCloudCallback(const sensor_msgs::msg::PointCloud2::SharedPtr msg)
-{
-
+void ObjectDetection::pointCloudCallback(const sensor_msgs::msg::PointCloud2::SharedPtr msg) {
     auto init_time = std::chrono::system_clock::now();
 
     // Convert ROS PointCloud2 to PCL PointCloud
@@ -172,112 +169,113 @@ void ObjectDetection::pointCloudCallback(const sensor_msgs::msg::PointCloud2::Sh
     }
 
     try {
-
-
-        // RCLCPP_INFO(this->get_logger(), "Number of points in the input cloud: %zu", input_cloud->size());
-
         auto cloud_clusters = obstacle_detector->clustering(input_cloud, CLUSTER_THRESH, CLUSTER_MIN_SIZE, CLUSTER_MAX_SIZE);
         auto& clusters = cloud_clusters.first;
         auto& centroids = cloud_clusters.second;
 
         // Proceed with further processing only if valid data is present
         if (!clusters.empty()) {
-
             convex_hull(std::move(clusters));
 
-            // clean the tracker ========================================
-
-
-            // Prepare bounding boxes and centroids for tracking
-            std::vector<Eigen::Vector3f> eigen_centroids;
-            std::vector<BBox> curr_boxes;
-            for (const auto& centroid : centroids) {
-                eigen_centroids.push_back(Eigen::Vector3f(centroid.x, centroid.y, centroid.z));
-            }
+            
             for (const auto& cluster : clusters) {
-                curr_boxes.push_back(get_futures_clouster(cluster));
+                curr_boxes.emplace_back(get_futures_clouster(cluster, obstacle_id_));
+
+                if (obstacle_id_ < SIZE_MAX) 
+                {
+                    ++obstacle_id_;
+                } 
+                else 
+                {
+                    obstacle_id_ = 0;
+                }
             }
 
-            RCLCPP_INFO(this->get_logger(), "Tracking %zu current boxes", curr_boxes.size());
+            tracker.obstacleTracking(prev_boxes_, curr_boxes, DISPLACEMENT_THRESH, IOU_THRESH);
 
 
-            tracker_.update(prev_boxes_, prev_centroids, eigen_centroids, curr_boxes);
-
-
-            visualization_msgs::msg::MarkerArray centroid_markers;
-            int id = 0;
-            for (const auto& track : tracker_.getTracks()) {
-
+            // Publish IDs as MarkerArray
+            visualization_msgs::msg::MarkerArray id_markers;
+            for (const auto& box : curr_boxes) {
                 visualization_msgs::msg::Marker marker;
                 marker.header.frame_id = "velodyne";
-                marker.ns = "centroids";
-                marker.id = id++;
+                marker.ns = "ids";
+                marker.id = box.id + 8000;
                 marker.type = visualization_msgs::msg::Marker::TEXT_VIEW_FACING;
                 marker.action = visualization_msgs::msg::Marker::ADD;
-                marker.pose.position.x = track.centroid.x();
-                marker.pose.position.y = track.centroid.y();
-                marker.pose.position.z = track.centroid.z() + 0.5;
-                marker.pose.orientation.x = 0.0;
-                marker.pose.orientation.y = 0.0;
-                marker.pose.orientation.z = 0.0;
+                marker.pose.position.x = box.position[0];
+                marker.pose.position.y = box.position[1];
+                marker.pose.position.z = box.position[2];
                 marker.pose.orientation.w = 1.0;
-                marker.scale.z = 0.4;
-                marker.color.r = 0.0;
+                marker.scale.z = 0.5;
+                marker.color.r = 1.0;
                 marker.color.g = 1.0;
-                marker.color.b = 0.0;
+                marker.color.b = 1.0;
                 marker.color.a = 1.0;
-                marker.text = std::to_string(track.id);
-                centroid_markers.markers.push_back(marker);
-
-                // publish as log the id 
-                RCLCPP_INFO(this->get_logger(), "Track ID: %d", track.id);
-
-
+                marker.text = std::to_string(box.id);
+                id_markers.markers.push_back(marker);
             }
+            id_publishers->publish(id_markers);
 
-            // Publish the new markers
-            centroid_marker_publisher_->publish(centroid_markers);
+            // publish size of the current boxes
+            RCLCPP_INFO(this->get_logger(), "Current boxes size: %ld", curr_boxes.size());
 
-            RCLCPP_INFO(this->get_logger(), "Updating previous boxes.");
-            prev_boxes_ = curr_boxes;
-            prev_centroids = eigen_centroids;
-
-
-            // ==========================================================================
-
-            // print the size of the trakers
-            RCLCPP_INFO(this->get_logger(), "Number of tracks: %zu", tracker_.getTracks().size());
-            // print the size of the centroids_markers
-            RCLCPP_INFO(this->get_logger(), "Number of centroids markers: %zu", centroid_markers.markers.size());
-
-            // log the clusters.size in red color
+            // Store current boxes and centroids as previous for the next iteration
+            prev_boxes_.swap(curr_boxes);
+            curr_boxes.clear();
+            // Log the number of clusters
             RCLCPP_INFO(this->get_logger(), "\033[1;31m ----->Number of clusters: %zu\033[0m", clusters.size());
+            
         }
     } catch (const std::exception& e) {
         RCLCPP_ERROR(this->get_logger(), "Error processing point cloud: %s", e.what());
     }
 
-  auto execution_time = std::chrono::duration_cast<std::chrono::milliseconds>(
+    auto execution_time = std::chrono::duration_cast<std::chrono::milliseconds>(
                             std::chrono::system_clock::now() - init_time)
                             .count();
-
-//   RCLCPP_INFO(this->get_logger(),"Planar Segmentation callback finished in %ld ms", execution_time);
+    RCLCPP_INFO(this->get_logger(), "PointCloud callback finished in %ld ms", execution_time);
 }
 
-BBox ObjectDetection::get_futures_clouster(const pcl::PointCloud<pcl::PointXYZ>::Ptr& cluster) {
-    Eigen::Vector4f min_pt, max_pt;
-    pcl::getMinMax3D<pcl::PointXYZ>(*cluster, min_pt, max_pt);
 
-    BBox bbox;
-    bbox.x_min = min_pt[0];
-    bbox.y_min = min_pt[1];
-    bbox.z_min = min_pt[2];
-    bbox.x_max = max_pt[0];
-    bbox.y_max = max_pt[1];
-    bbox.z_max = max_pt[2];
 
-    return bbox;
+BBox ObjectDetection::get_futures_clouster(const pcl::PointCloud<pcl::PointXYZ>::Ptr& cluster, const int id)
+{
+    // Compute the bounding box height (to be used later for recreating the box)
+    pcl::PointXYZ min_pt, max_pt;
+    pcl::getMinMax3D(*cluster, min_pt, max_pt);
+    const float box_height = max_pt.z - min_pt.z;
+    const float box_z = (max_pt.z + min_pt.z) / 2;
+
+    // Compute the cluster centroid
+    Eigen::Vector4f pca_centroid;
+    pcl::compute3DCentroid(*cluster, pca_centroid);
+
+    // Squash the cluster to x-y plane with z = centroid z
+    for (size_t i = 0; i < cluster->size(); ++i) {
+        cluster->points[i].z = pca_centroid(2);
+    }
+
+    // Compute principal directions & Transform the original cloud to PCA coordinates
+    pcl::PointCloud<pcl::PointXYZ>::Ptr pca_projected_cloud(new pcl::PointCloud<pcl::PointXYZ>);
+    pcl::PCA<pcl::PointXYZ> pca;
+    pca.setInputCloud(cluster);
+    pca.project(*cluster, *pca_projected_cloud);
+
+    const auto eigen_vectors = pca.getEigenVectors();
+
+    // Get the minimum and maximum points of the transformed cloud.
+    pcl::getMinMax3D(*pca_projected_cloud, min_pt, max_pt);
+    const Eigen::Vector3f meanDiagonal = 0.5f * (max_pt.getVector3fMap() + min_pt.getVector3fMap());
+
+    // Final transform
+    const Eigen::Quaternionf quaternion(eigen_vectors); // Quaternions are a way to do rotations https://www.youtube.com/watch?v=mHVwd8gYLnI
+    const Eigen::Vector3f position = eigen_vectors * meanDiagonal + pca_centroid.head<3>();
+    const Eigen::Vector3f dimension((max_pt.x - min_pt.x), (max_pt.y - min_pt.y), box_height);
+
+    return BBox(id, position, dimension, quaternion);
 }
+
 
 
 

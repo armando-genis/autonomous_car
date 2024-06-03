@@ -4,7 +4,7 @@ from launch_ros.actions import Node
 from ament_index_python.packages import get_package_share_directory
 import launch
 
-from launch.actions import IncludeLaunchDescription, LogInfo, DeclareLaunchArgument, TimerAction
+from launch.actions import IncludeLaunchDescription, LogInfo, DeclareLaunchArgument, TimerAction, ExecuteProcess, SetEnvironmentVariable
 from launch.substitutions import PathJoinSubstitution, LaunchConfiguration
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 
@@ -13,7 +13,6 @@ from launch_ros.substitutions import FindPackageShare
 from launch.conditions import IfCondition, UnlessCondition
 
 from launch.substitutions import FindExecutable
-from launch.actions import ExecuteProcess
 import launch_ros
 
 
@@ -63,12 +62,12 @@ def generate_launch_description():
     )
 
     return LaunchDescription([
-
+        SetEnvironmentVariable(name='RCUTILS_CONSOLE_OUTPUT_FORMAT', value='{message}'),
         voxel_filter,
         ground_getter,
         TimerAction(
             actions=[
-                # lidar3d_cluster,
+                lidar3d_cluster
                 # optimal_planner
             ],
             period='2.0', 
