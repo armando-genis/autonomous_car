@@ -71,6 +71,7 @@ private:
     // functions
     void convex_hull(std::vector<pcl::PointCloud<pcl::PointXYZ>::Ptr>&& cloud_clusters);
     BBox get_futures_clouster(const pcl::PointCloud<pcl::PointXYZ>::Ptr& cluster);
+    void id_pose_publisher();
 
 
 
@@ -83,6 +84,7 @@ private:
     rclcpp::Publisher<lidar_msgs::msg::ObstacleData>::SharedPtr obstacle_data_publisher_;
     rclcpp::Publisher<geometry_msgs::msg::PointStamped>::SharedPtr centroid_publisher_;
     rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr id_publishers;
+    rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr bbox_marker_publisher_;
 
 
 
@@ -126,6 +128,8 @@ ObjectDetection::ObjectDetection(/* args */) : Node("lidar3d_clustering_node")
     centroid_publisher_ = this->create_publisher<geometry_msgs::msg::PointStamped>("centroid_topic", 10);
 
     id_publishers = this->create_publisher<visualization_msgs::msg::MarkerArray>("/id_publishers", 10);
+
+    bbox_marker_publisher_ = this->create_publisher<visualization_msgs::msg::MarkerArray>("bbox_marker_array", 10);
 
 
     // Create point processor
@@ -188,12 +192,14 @@ void ObjectDetection::pointCloudCallback(const sensor_msgs::msg::PointCloud2::Sh
             }   
 
             // Publish IDs as MarkerArray
+            int id_ = 0;
             visualization_msgs::msg::MarkerArray id_markers;
             for (const auto& box : curr_boxes) {
                 visualization_msgs::msg::Marker marker;
                 marker.header.frame_id = "velodyne";
+                marker.header.stamp = this->now();
                 marker.ns = "ids";
-                marker.id = box.id + 8000;
+                marker.id = 7000 + id_++;
                 marker.type = visualization_msgs::msg::Marker::TEXT_VIEW_FACING;
                 marker.action = visualization_msgs::msg::Marker::ADD;
                 marker.pose.position.x = box.position[0];
@@ -209,6 +215,35 @@ void ObjectDetection::pointCloudCallback(const sensor_msgs::msg::PointCloud2::Sh
                 id_markers.markers.push_back(marker);
             }
             id_publishers->publish(id_markers);
+
+            id_ = 0;
+            // Publish BBox transformations as MarkerArray with arrows
+            visualization_msgs::msg::MarkerArray bbox_markers;
+            for (const auto& box : curr_boxes) {
+                visualization_msgs::msg::Marker marker;
+                marker.header.frame_id = "velodyne";
+                marker.header.stamp = this->now();
+                marker.ns = "bbox";
+                marker.id = 8000 + id_++;
+                marker.type = visualization_msgs::msg::Marker::ARROW;
+                marker.action = visualization_msgs::msg::Marker::ADD;
+                marker.pose.position.x = box.position[0];
+                marker.pose.position.y = box.position[1];
+                marker.pose.position.z = box.position[2];
+                marker.pose.orientation.x = box.quaternion.x();
+                marker.pose.orientation.y = box.quaternion.y();
+                marker.pose.orientation.z = box.quaternion.z();
+                marker.pose.orientation.w = box.quaternion.w();
+                marker.scale.x = 1.0;  // Arrow length
+                marker.scale.y = 0.1;  // Arrow width
+                marker.scale.z = 0.1;  // Arrow height
+                marker.color.r = 1.0;
+                marker.color.g = 0.0;
+                marker.color.b = 0.0;
+                marker.color.a = 1.0;
+                bbox_markers.markers.push_back(marker);
+            }
+            bbox_marker_publisher_->publish(bbox_markers);
 
             // publish size of the current boxes
             RCLCPP_INFO(this->get_logger(), "Current boxes size: %ld", curr_boxes.size());

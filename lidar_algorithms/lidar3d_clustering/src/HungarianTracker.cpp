@@ -1,12 +1,15 @@
 #include "HungarianTracker.hpp"
 #include <cmath>
 #include <iostream>
+#include <unordered_map>
+#include <unordered_set>
+#include <set>
 
 HungarianTracker::HungarianTracker() : next_id_(0) {}
 
 void HungarianTracker::obstacleTracking(const std::vector<BBox>& prev_boxes, std::vector<BBox>& curr_boxes, float displacement_thresh, float iou_thresh) {
     if (curr_boxes.empty() || prev_boxes.empty()) {
-        std::cerr << "Empty current or previous boxes. Exiting obstacleTracking." << std::endl;
+        // std::cerr << "Empty current or previous boxes. Exiting obstacleTracking." << std::endl;
         return;
     }
 
@@ -17,7 +20,7 @@ void HungarianTracker::obstacleTracking(const std::vector<BBox>& prev_boxes, std
     auto connection_pairs = associateBoxes(prev_boxes, curr_boxes, displacement_thresh, iou_thresh);
 
     if (connection_pairs.empty()) {
-        std::cerr << "No connection pairs found. Exiting obstacleTracking." << std::endl;
+        // std::cerr << "No connection pairs found. Exiting obstacleTracking." << std::endl;
         return;
     }
 
@@ -28,6 +31,8 @@ void HungarianTracker::obstacleTracking(const std::vector<BBox>& prev_boxes, std
     std::unordered_map<int, BBox> updated_boxes;
     std::unordered_set<int> used_ids;
     std::set<int> available_ids;
+
+    const float movement_threshold = 0.05; // Define a threshold for significant movement
 
     for (const auto& box : prev_boxes) {
         used_ids.insert(box.id);
@@ -47,11 +52,27 @@ void HungarianTracker::obstacleTracking(const std::vector<BBox>& prev_boxes, std
         if (pre_index > -1 && cur_index > -1) {
             curr_boxes[cur_index].id = prev_boxes[pre_index].id;
             updated_boxes[cur_index] = curr_boxes[cur_index];
+
+            Eigen::Vector2f prev_position_xy(prev_boxes[pre_index].position[0], prev_boxes[pre_index].position[1]);
+            Eigen::Vector2f curr_position_xy(curr_boxes[cur_index].position[0], curr_boxes[cur_index].position[1]);
+            Eigen::Vector2f displacement_xy = curr_position_xy - prev_position_xy;
+
+            if (displacement_xy.norm() > movement_threshold) {
+                // Update quaternion based on the new direction in the x-y plane
+                Eigen::Vector3f direction(displacement_xy[0], displacement_xy[1], 0.0f);
+                curr_boxes[cur_index].quaternion = Eigen::Quaternionf::FromTwoVectors(Eigen::Vector3f::UnitX(), direction);
+            } else {
+                // Keep the previous quaternion if movement is insignificant
+                curr_boxes[cur_index].quaternion = prev_boxes[pre_index].quaternion;
+            }
+
             used_ids.insert(prev_boxes[pre_index].id);
             available_ids.erase(prev_boxes[pre_index].id);
-            std::cout << "Assigned ID: " << prev_boxes[pre_index].id << " to current box at index: " << cur_index << std::endl;
+            // std::cout << "Assigned ID: " << prev_boxes[pre_index].id << " to current box at index: " << cur_index << std::endl;
         }
     }
+
+    next_id_ = std::min(static_cast<int>(curr_boxes.size()) + 7, next_id_);
 
     for (size_t i = 0; i < curr_boxes.size(); ++i) {
         if (updated_boxes.find(i) == updated_boxes.end()) {
@@ -63,13 +84,16 @@ void HungarianTracker::obstacleTracking(const std::vector<BBox>& prev_boxes, std
                 new_id = next_id_++;
             }
             curr_boxes[i].id = new_id;
+            // Calculate quaternion based on the direction from the origin (0,0,0) to the current position in the x-y plane
+            Eigen::Vector2f curr_position_xy(curr_boxes[i].position[0], curr_boxes[i].position[1]);
+            Eigen::Vector3f direction(curr_position_xy[0], curr_position_xy[1], 0.0f);
+            curr_boxes[i].quaternion = Eigen::Quaternionf::FromTwoVectors(Eigen::Vector3f::UnitX(), direction);
             updated_boxes[i] = curr_boxes[i];
             used_ids.insert(new_id);
-            std::cout << "Assigned new ID: " << new_id << " to current box." << std::endl;
         }
     }
 
-    std::cout << "Completed obstacleTracking function." << std::endl;
+    // std::cout << "Completed obstacleTracking function." << std::endl;
 }
 
 bool HungarianTracker::compareBoxes(const BBox& a, const BBox& b, float displacement_thresh, float iou_thresh) {
@@ -96,12 +120,12 @@ std::vector<std::vector<int>> HungarianTracker::associateBoxes(const std::vector
             if (compareBoxes(prev_boxes[i], curr_boxes[j], displacement_thresh, iou_thresh)) {
                 if (curr_boxes[j].id == -1) {
                     curr_boxes[j].id = next_id_++;
+                    // std::cout << "Assigned new ID to current box: " << curr_boxes[j].id << " at index: " << j << std::endl;
                 }
                 connection_pairs.emplace_back(std::initializer_list<int>{prev_boxes[i].id, curr_boxes[j].id});
             }
         }
     }
-
     return connection_pairs;
 }
 
@@ -148,13 +172,17 @@ std::vector<int> HungarianTracker::hungarian(const std::vector<std::vector<int>>
     for (size_t i = 0; i < connection_matrix.size(); ++i) {
         std::fill(right_connected.begin(), right_connected.end(), false);
         if (hungarianFind(i, connection_matrix, right_connected, right_pair)) {
-            ++count;
+            count++;
         }
     }
 
-    std::cout << "For: " << right_pair.size() << " current frame bounding boxes, found: " << count << " matches in previous frame!" << std::endl;
-
-    return right_pair;
+    std::vector<int> result;
+    for (size_t i = 0; i < right_pair.size(); ++i) {
+        if (right_pair[i] != -1) {
+            result.push_back(right_pair[i]);
+        }
+    }
+    return result;
 }
 
 int HungarianTracker::searchBoxIndex(const std::vector<BBox>& boxes, int id) {
