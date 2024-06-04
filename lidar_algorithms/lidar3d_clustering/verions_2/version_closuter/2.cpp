@@ -2,11 +2,8 @@
 #include <cmath>
 #include <iostream>
 
-HungarianTracker::HungarianTracker() : next_id_(0) {}
-
 void HungarianTracker::obstacleTracking(const std::vector<BBox>& prev_boxes, std::vector<BBox>& curr_boxes, float displacement_thresh, float iou_thresh) {
     if (curr_boxes.empty() || prev_boxes.empty()) {
-        std::cerr << "Empty current or previous boxes. Exiting obstacleTracking." << std::endl;
         return;
     }
 
@@ -16,29 +13,13 @@ void HungarianTracker::obstacleTracking(const std::vector<BBox>& prev_boxes, std
 
     auto connection_pairs = associateBoxes(prev_boxes, curr_boxes, displacement_thresh, iou_thresh);
 
-    if (connection_pairs.empty()) {
-        std::cerr << "No connection pairs found. Exiting obstacleTracking." << std::endl;
-        return;
-    }
+    if (connection_pairs.empty()) return;
 
     auto connection_matrix = connectionMatrix(connection_pairs, pre_ids, cur_ids);
 
     matches = hungarian(connection_matrix);
 
-    std::unordered_map<int, BBox> updated_boxes;
-    std::unordered_set<int> used_ids;
-    std::set<int> available_ids;
-
-    for (const auto& box : prev_boxes) {
-        used_ids.insert(box.id);
-    }
-    for (size_t i = 0; i < curr_boxes.size(); ++i) {
-        if (used_ids.find(i) == used_ids.end()) {
-            available_ids.insert(i);
-        }
-    }
-
-    for (size_t j = 0; j < matches.size(); ++j) {
+    for (int j = 0; j < matches.size(); ++j) {
         const auto pre_id = pre_ids[matches[j]];
         const auto pre_index = searchBoxIndex(prev_boxes, pre_id);
         const auto cur_id = cur_ids[j];
@@ -46,30 +27,8 @@ void HungarianTracker::obstacleTracking(const std::vector<BBox>& prev_boxes, std
 
         if (pre_index > -1 && cur_index > -1) {
             curr_boxes[cur_index].id = prev_boxes[pre_index].id;
-            updated_boxes[cur_index] = curr_boxes[cur_index];
-            used_ids.insert(prev_boxes[pre_index].id);
-            available_ids.erase(prev_boxes[pre_index].id);
-            std::cout << "Assigned ID: " << prev_boxes[pre_index].id << " to current box at index: " << cur_index << std::endl;
         }
     }
-
-    for (size_t i = 0; i < curr_boxes.size(); ++i) {
-        if (updated_boxes.find(i) == updated_boxes.end()) {
-            int new_id;
-            if (!available_ids.empty()) {
-                new_id = *available_ids.begin();
-                available_ids.erase(available_ids.begin());
-            } else {
-                new_id = next_id_++;
-            }
-            curr_boxes[i].id = new_id;
-            updated_boxes[i] = curr_boxes[i];
-            used_ids.insert(new_id);
-            std::cout << "Assigned new ID: " << new_id << " to current box." << std::endl;
-        }
-    }
-
-    std::cout << "Completed obstacleTracking function." << std::endl;
 }
 
 bool HungarianTracker::compareBoxes(const BBox& a, const BBox& b, float displacement_thresh, float iou_thresh) {
@@ -88,16 +47,13 @@ bool HungarianTracker::compareBoxes(const BBox& a, const BBox& b, float displace
     return (ctr_dis <= displacement_thresh && x_dim <= iou_thresh && y_dim <= iou_thresh && z_dim <= iou_thresh);
 }
 
-std::vector<std::vector<int>> HungarianTracker::associateBoxes(const std::vector<BBox>& prev_boxes, std::vector<BBox>& curr_boxes, float displacement_thresh, float iou_thresh) {
+std::vector<std::vector<int>> HungarianTracker::associateBoxes(const std::vector<BBox>& prev_boxes, const std::vector<BBox>& curr_boxes, float displacement_thresh, float iou_thresh) {
     std::vector<std::vector<int>> connection_pairs;
 
-    for (size_t i = 0; i < prev_boxes.size(); ++i) {
-        for (size_t j = 0; j < curr_boxes.size(); ++j) {
-            if (compareBoxes(prev_boxes[i], curr_boxes[j], displacement_thresh, iou_thresh)) {
-                if (curr_boxes[j].id == -1) {
-                    curr_boxes[j].id = next_id_++;
-                }
-                connection_pairs.emplace_back(std::initializer_list<int>{prev_boxes[i].id, curr_boxes[j].id});
+    for (const auto& prev_box : prev_boxes) {
+        for (const auto& curBox : curr_boxes) {
+            if (compareBoxes(curBox, prev_box, displacement_thresh, iou_thresh)) {
+                connection_pairs.push_back({prev_box.id, curBox.id});
             }
         }
     }
@@ -127,7 +83,7 @@ std::vector<std::vector<int>> HungarianTracker::connectionMatrix(const std::vect
 }
 
 bool HungarianTracker::hungarianFind(int i, const std::vector<std::vector<int>>& connection_matrix, std::vector<bool>& right_connected, std::vector<int>& right_pair) {
-    for (size_t j = 0; j < connection_matrix[i].size(); ++j) {
+    for (int j = 0; j < connection_matrix[i].size(); ++j) {
         if (connection_matrix[i][j] == 1 && !right_connected[j]) {
             right_connected[j] = true;
 
@@ -145,23 +101,22 @@ std::vector<int> HungarianTracker::hungarian(const std::vector<std::vector<int>>
     std::vector<int> right_pair(connection_matrix[0].size(), -1);
 
     int count = 0;
-    for (size_t i = 0; i < connection_matrix.size(); ++i) {
+    for (int i = 0; i < connection_matrix.size(); ++i) {
         std::fill(right_connected.begin(), right_connected.end(), false);
         if (hungarianFind(i, connection_matrix, right_connected, right_pair)) {
             ++count;
         }
     }
 
-    std::cout << "For: " << right_pair.size() << " current frame bounding boxes, found: " << count << " matches in previous frame!" << std::endl;
+    std::cout << "For: " << right_pair.size() << " current frame bounding boxes, found: " << count << " matches in previous frame! " << std::endl;
 
     return right_pair;
 }
 
 int HungarianTracker::searchBoxIndex(const std::vector<BBox>& boxes, int id) {
-    for (size_t i = 0; i < boxes.size(); ++i) {
-        if (boxes[i].id == id) {
+    for (int i = 0; i < boxes.size(); i++) {
+        if (boxes[i].id == id)
             return i;
-        }
     }
     return -1;
 }

@@ -61,6 +61,7 @@ private:
     std::vector<Eigen::Vector3f> prev_centroids;
     std::vector<BBox> curr_boxes;
 
+    size_t obstacle_id_ = 0;
 
     HungarianTracker tracker;
 
@@ -70,7 +71,7 @@ private:
 
     // functions
     void convex_hull(std::vector<pcl::PointCloud<pcl::PointXYZ>::Ptr>&& cloud_clusters);
-    BBox get_futures_clouster(const pcl::PointCloud<pcl::PointXYZ>::Ptr& cluster);
+    BBox get_futures_clouster(const pcl::PointCloud<pcl::PointXYZ>::Ptr& cluster, const int id);
 
 
 
@@ -178,7 +179,16 @@ void ObjectDetection::pointCloudCallback(const sensor_msgs::msg::PointCloud2::Sh
 
             
             for (const auto& cluster : clusters) {
-                curr_boxes.emplace_back(get_futures_clouster(cluster));
+                curr_boxes.emplace_back(get_futures_clouster(cluster, obstacle_id_));
+
+                if (obstacle_id_ < SIZE_MAX) 
+                {
+                    ++obstacle_id_;
+                } 
+                else 
+                {
+                    obstacle_id_ = 0;
+                }
             }
 
             try {
@@ -198,12 +208,12 @@ void ObjectDetection::pointCloudCallback(const sensor_msgs::msg::PointCloud2::Sh
                 marker.action = visualization_msgs::msg::Marker::ADD;
                 marker.pose.position.x = box.position[0];
                 marker.pose.position.y = box.position[1];
-                marker.pose.position.z = box.position[2] + 0.7;
+                marker.pose.position.z = box.position[2];
                 marker.pose.orientation.w = 1.0;
                 marker.scale.z = 0.5;
-                marker.color.r = 0.0;
+                marker.color.r = 1.0;
                 marker.color.g = 1.0;
-                marker.color.b = 0.0;
+                marker.color.b = 1.0;
                 marker.color.a = 1.0;
                 marker.text = std::to_string(box.id);
                 id_markers.markers.push_back(marker);
@@ -215,12 +225,11 @@ void ObjectDetection::pointCloudCallback(const sensor_msgs::msg::PointCloud2::Sh
 
             // Store current boxes and centroids as previous for the next iteration
             prev_boxes_.swap(curr_boxes);
+            curr_boxes.clear();
             // Log the number of clusters
             RCLCPP_INFO(this->get_logger(), "\033[1;31m ----->Number of clusters: %zu\033[0m", clusters.size());
-            // print the size of the curr_boxes
-            RCLCPP_INFO(this->get_logger(), "\033[1;31m ----->Number of current id: %zu\033[0m", curr_boxes.size());
-            curr_boxes.clear();
-
+            // print the current obstacle id
+            RCLCPP_INFO(this->get_logger(), "\033[1;31m ----->Current obstacle id: %zu\033[0m", obstacle_id_);
             
         }
     } catch (const std::exception& e) {
@@ -235,7 +244,7 @@ void ObjectDetection::pointCloudCallback(const sensor_msgs::msg::PointCloud2::Sh
 
 
 
-BBox ObjectDetection::get_futures_clouster(const pcl::PointCloud<pcl::PointXYZ>::Ptr& cluster)
+BBox ObjectDetection::get_futures_clouster(const pcl::PointCloud<pcl::PointXYZ>::Ptr& cluster, const int id)
 {
     // Compute the bounding box height (to be used later for recreating the box)
     pcl::PointXYZ min_pt, max_pt;
@@ -269,7 +278,7 @@ BBox ObjectDetection::get_futures_clouster(const pcl::PointCloud<pcl::PointXYZ>:
     const Eigen::Vector3f position = eigen_vectors * meanDiagonal + pca_centroid.head<3>();
     const Eigen::Vector3f dimension((max_pt.x - min_pt.x), (max_pt.y - min_pt.y), box_height);
 
-    return BBox(-1, position, dimension, quaternion);
+    return BBox(id, position, dimension, quaternion);
 }
 
 
