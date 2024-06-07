@@ -1,0 +1,21 @@
+# camera_info_memo_camara.yaml
+image_width: 640
+image_height: 360
+camera_name: camera
+camera_matrix:
+  rows: 3
+  cols: 3
+  data: [562.19340425478924, 0.0, 344.4703239415295, 0.0, 562.76698426639632, 191.73795575174512, 0.0, 0.0, 1.0]
+distortion_model: plumb_bob
+distortion_coefficients:
+  rows: 1
+  cols: 5
+  data: [-0.09948578864494681, 0.57991332959646968, 0.008541198104680962, 0.009378344987563996, -1.1275690237699587]
+rectification_matrix:
+  rows: 3
+  cols: 3
+  data: [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0]
+projection_matrix:
+  rows: 3
+  cols: 4
+  data: [562.19340425478924, 0.0, 344.4703239415295, 0.0, 0.0, 562.76698426639632, 191.73795575174512, 0.0, 0.0, 0.0, 1.0, 0.0]

@@ -1,4 +1,5 @@
 #include <rclcpp/rclcpp.hpp>
+// Ros2
 #include <sensor_msgs/msg/point_cloud2.hpp>
 #include <sensor_msgs/msg/camera_info.hpp>
 #include <pcl_conversions/pcl_conversions.h>
@@ -7,8 +8,8 @@
 #include <visualization_msgs/msg/marker_array.hpp>
 #include <tf2_ros/buffer.h>
 #include <tf2_ros/transform_listener.h>
-#include <tf2_eigen/tf2_eigen.hpp>
-#include <tf2_sensor_msgs/tf2_sensor_msgs.hpp>
+#include <tf2_eigen/tf2_eigen.h>
+#include <tf2_sensor_msgs/tf2_sensor_msgs.h>
 
 // C++
 #include <iostream>
@@ -37,20 +38,26 @@ using namespace std;
 class PointsDetector : public rclcpp::Node
 {
 private:
-    void callback_lidar(const sensor_msgs::msg::PointCloud2::SharedPtr cloud);
+    // Callbacks
     void callback_camera_info(const sensor_msgs::msg::CameraInfo::SharedPtr cam);
+    void callback_point_cloud(const sensor_msgs::msg::PointCloud2::SharedPtr cloud);
     void callback_detections(const vision_msgs::msg::Detection2DArray::SharedPtr detections);
+
     pcl::PointCloud<pcl::PointXYZ> msg2TransformedCloud(const sensor_msgs::msg::PointCloud2::SharedPtr& cloud_msg);
 
     std::tuple<vision_msgs::msg::Detection3DArray, sensor_msgs::msg::PointCloud2> projectCloud(const pcl::PointCloud<pcl::PointXYZ>& cloud, const vision_msgs::msg::Detection2DArray::SharedPtr& detections2d_msg, const std_msgs::msg::Header& header);
 
     float _cluster_tolerance = 0.5;
     int _min_cluster_size = 50;
-    int _max_cluster_size = 25000;
+    int _max_cluster_size =  25000;
+
+    sensor_msgs::msg::CameraInfo::SharedPtr cam_info_;
+    vision_msgs::msg::Detection2DArray::SharedPtr detections_;
 
     rclcpp::Subscription<sensor_msgs::msg::CameraInfo>::SharedPtr cam_sub_;
     rclcpp::Subscription<sensor_msgs::msg::PointCloud2>::SharedPtr lidar_sub_;
     rclcpp::Subscription<vision_msgs::msg::Detection2DArray>::SharedPtr det_sub_;
+
     image_geometry::PinholeCameraModel _cam_model;
 
     std::shared_ptr<tf2_ros::Buffer> tf_buffer_;
@@ -58,9 +65,6 @@ private:
     
     cv::Mat cameraMatrix;
     cv::Mat distCoeffs;
-
-    vision_msgs::msg::Detection2DArray::SharedPtr current_detections_;
-    sensor_msgs::msg::CameraInfo::SharedPtr current_camera_info_;
 
     void project3DPointsTo2D(const std::vector<cv::Point3f>& points3D, std::vector<cv::Point2f>& points2D);
     pcl::PointCloud<pcl::PointXYZ> cloud2TransformedCloud(const pcl::PointCloud<pcl::PointXYZ>& cloud, const std_msgs::msg::Header& header);
@@ -82,8 +86,10 @@ PointsDetector::PointsDetector(/* args */) : Node("PointsDetector_node")
 {
     cam_sub_ = this->create_subscription<sensor_msgs::msg::CameraInfo>(
         "/camera_info", 10, std::bind(&PointsDetector::callback_camera_info, this, std::placeholders::_1));
+
     lidar_sub_ = this->create_subscription<sensor_msgs::msg::PointCloud2>(
-        "/points_roi", 10, std::bind(&PointsDetector::callback_lidar, this, std::placeholders::_1));
+        "/points_roi", 10, std::bind(&PointsDetector::callback_point_cloud, this, std::placeholders::_1));
+
     det_sub_ = this->create_subscription<vision_msgs::msg::Detection2DArray>(
         "/detections", 10, std::bind(&PointsDetector::callback_detections, this, std::placeholders::_1));
 
@@ -106,39 +112,52 @@ void PointsDetector::initialize()
 
 void PointsDetector::callback_camera_info(const sensor_msgs::msg::CameraInfo::SharedPtr cam)
 {
-    current_camera_info_ = cam;
+    RCLCPP_INFO(this->get_logger(), "\033[1;34mCamera info received\033[0m");
+    cam_info_ = cam;
     cameraMatrix = (cv::Mat1d(3, 3) << cam->k[0], cam->k[1], cam->k[2], cam->k[3], cam->k[4], cam->k[5], cam->k[6], cam->k[7], cam->k[8]);
-    distCoeffs = cv::Mat::zeros(4, 1, CV_64F);
+    distCoeffs = (cv::Mat1d(1, 5) << cam->d[0], cam->d[1], cam->d[2], cam->d[3], cam->d[4]); // Update to match the distortion coefficients length
     _cam_model.fromCameraInfo(cam);
-    RCLCPP_INFO(this->get_logger(), "Camera info received");
+
+    // Debugging camera matrix and distortion coefficients
+    RCLCPP_INFO(this->get_logger(), "Camera Matrix: ");
+    // for (int i = 0; i < 3; ++i) {
+    //     RCLCPP_INFO(this->get_logger(), "%f %f %f", cameraMatrix.at<double>(i, 0), cameraMatrix.at<double>(i, 1), cameraMatrix.at<double>(i, 2));
+    // }
+    // RCLCPP_INFO(this->get_logger(), "Dist Coeffs: %f %f %f %f %f", distCoeffs.at<double>(0), distCoeffs.at<double>(1), distCoeffs.at<double>(2), distCoeffs.at<double>(3), distCoeffs.at<double>(4));
 }
+
 
 void PointsDetector::callback_detections(const vision_msgs::msg::Detection2DArray::SharedPtr detections)
 {
-    current_detections_ = detections;
-    RCLCPP_INFO(this->get_logger(), "Detections received");
+    RCLCPP_INFO(this->get_logger(), "\033[1;31mDetections received\033[0m");
+    detections_ = detections;
 }
 
-void PointsDetector::callback_lidar(const sensor_msgs::msg::PointCloud2::SharedPtr cloud)
+void PointsDetector::callback_point_cloud(const sensor_msgs::msg::PointCloud2::SharedPtr cloud)
 {
-    if (!current_camera_info_ || !current_detections_)
-    {
-        RCLCPP_WARN(this->get_logger(), "No camera info or detections available, skipping processing.");
+    if (!cam_info_ || !detections_) {
+        RCLCPP_WARN(this->get_logger(), "Camera info or detections not received yet");
         return;
     }
-
-    RCLCPP_INFO(this->get_logger(), "Processing LIDAR data");
 
     pcl::PointCloud<pcl::PointXYZ> transformed_cloud;
     visualization_msgs::msg::MarkerArray marker_array_msg;
 
+    RCLCPP_INFO(this->get_logger(), "callback_point_cloud");
+
     transformed_cloud = msg2TransformedCloud(cloud);
-    auto [detections3d_msg, detection_cloud_msg] = projectCloud(transformed_cloud, current_detections_, cloud->header);
+    auto [detections3d_msg, detection_cloud_msg] = projectCloud(transformed_cloud, detections_, cloud->header);
     marker_array_msg = createMarkerArray(detections3d_msg);
 
-    _detection3d_pub->publish(detections3d_msg);
-    _detection_cloud_pub->publish(detection_cloud_msg);
-    _marker_pub->publish(marker_array_msg);
+    if (detections3d_msg.detections.empty()) {
+        RCLCPP_INFO(this->get_logger(), "No detections made");
+    } else {
+        _detection3d_pub->publish(detections3d_msg);
+        _detection_cloud_pub->publish(detection_cloud_msg);
+        _marker_pub->publish(marker_array_msg);
+        // print puiblish in yellow
+        RCLCPP_INFO(this->get_logger(), "\033[1;33mDetections published\033[0m");
+    }
 }
 
 void PointsDetector::project3DPointsTo2D(const std::vector<cv::Point3f>& points3D, std::vector<cv::Point2f>& points2D)
@@ -146,8 +165,19 @@ void PointsDetector::project3DPointsTo2D(const std::vector<cv::Point3f>& points3
     cv::Mat rvec = cv::Mat::zeros(3, 1, CV_64F);  // Assuming no rotation
     cv::Mat tvec = cv::Mat::zeros(3, 1, CV_64F);  // Assuming no translation
 
+    // Add debug info to check the inputs and outputs of projectPoints
+    RCLCPP_INFO(this->get_logger(), "Projecting %d points", points3D.size());
+    // for (const auto& point : points3D) {
+    //     RCLCPP_INFO(this->get_logger(), "3D Point: (%f, %f, %f)", point.x, point.y, point.z);
+    // }
+
     cv::projectPoints(points3D, rvec, tvec, cameraMatrix, distCoeffs, points2D);
+
+    // for (const auto& point : points2D) {
+    //     RCLCPP_INFO(this->get_logger(), "2D Point: (%f, %f)", point.x, point.y);
+    // }
 }
+
 
 pcl::PointCloud<pcl::PointXYZ> PointsDetector::msg2TransformedCloud(const sensor_msgs::msg::PointCloud2::SharedPtr& cloud_msg)
 {
@@ -157,7 +187,6 @@ pcl::PointCloud<pcl::PointXYZ> PointsDetector::msg2TransformedCloud(const sensor
 
     try
     {
-        RCLCPP_INFO(this->get_logger(), "Looking up transform from %s to %s", cloud_msg->header.frame_id.c_str(), _cam_model.tfFrame().c_str());
         tf = tf_buffer_->lookupTransform(_cam_model.tfFrame(), cloud_msg->header.frame_id, tf2::TimePointZero);
         pcl::fromROSMsg(*cloud_msg, cloud);
         Eigen::Affine3d transform = tf2::transformToEigen(tf.transform);
@@ -165,9 +194,8 @@ pcl::PointCloud<pcl::PointXYZ> PointsDetector::msg2TransformedCloud(const sensor
     }
     catch (tf2::TransformException& e)
     {
-        RCLCPP_WARN(this->get_logger(), "Transform warning: %s", e.what());
+        RCLCPP_WARN(this->get_logger(), "%s", e.what());
     }
-
     return transformed_cloud;
 }
 
@@ -197,9 +225,9 @@ pcl::PointCloud<pcl::PointXYZ> PointsDetector::euclideanClusterExtraction(const 
     float min_distance = std::numeric_limits<float>::max();
     tree->setInputCloud(cloud.makeShared());
     ec.setInputCloud(cloud.makeShared());
-    ec.setClusterTolerance(_cluster_tolerance);
-    ec.setMinClusterSize(_min_cluster_size);
-    ec.setMaxClusterSize(_max_cluster_size);
+    ec.setClusterTolerance(_cluster_tolerance);  // Assuming _cluster_tolerance is a class member
+    ec.setMinClusterSize(_min_cluster_size);    // Assuming _min_cluster_size is a class member
+    ec.setMaxClusterSize(_max_cluster_size);    // Assuming _max_cluster_size is a class member
     ec.setSearchMethod(tree);
     ec.extract(cluster_indices);
     for (const auto& cluster_indice : cluster_indices)
@@ -261,11 +289,11 @@ visualization_msgs::msg::MarkerArray PointsDetector::createMarkerArray(const vis
 {
     visualization_msgs::msg::MarkerArray marker_array;
 
-    for (size_t i = 0; i < detections3d_msg.detections.size(); ++i)
+    for(size_t i = 0; i < detections3d_msg.detections.size(); ++i)
     {
         if (std::isfinite(detections3d_msg.detections[i].bbox.size.x) &&
-            std::isfinite(detections3d_msg.detections[i].bbox.size.y) &&
-            std::isfinite(detections3d_msg.detections[i].bbox.size.z))
+        std::isfinite(detections3d_msg.detections[i].bbox.size.y) &&
+        std::isfinite(detections3d_msg.detections[i].bbox.size.z))
         {
             const auto& detection = detections3d_msg.detections[i];
             const auto& bbox = detection.bbox;
@@ -291,7 +319,7 @@ visualization_msgs::msg::MarkerArray PointsDetector::createMarkerArray(const vis
             marker.color.a = 0.5;
 
             marker_array.markers.push_back(marker);
-        }
+        }  
     }
 
     return marker_array;
@@ -306,7 +334,7 @@ std::tuple<vision_msgs::msg::Detection3DArray, sensor_msgs::msg::PointCloud2> Po
     vision_msgs::msg::Detection3DArray detections3d_msg;
     sensor_msgs::msg::PointCloud2 combine_detection_cloud_msg;
     detections3d_msg.header = header;
-
+    
     for (const auto& detection : detections2d_msg->detections)
     {
         for (const auto& point : cloud.points)
@@ -317,6 +345,10 @@ std::tuple<vision_msgs::msg::Detection3DArray, sensor_msgs::msg::PointCloud2> Po
             project3DPointsTo2D(points3D, points2D);
             cv::Point2d uv = points2D[0];
 
+            // RCLCPP_INFO(this->get_logger(), "Point (uv): %f, %f", uv.x, uv.y);
+            // RCLCPP_INFO(this->get_logger(), "BBox Center: %f, %f", detection.bbox.center.position.x, detection.bbox.center.position.y);
+            // RCLCPP_INFO(this->get_logger(), "BBox Size: %f, %f", detection.bbox.size_x, detection.bbox.size_y);
+
             if (point.z > 0 && uv.x > 0 && uv.x >= detection.bbox.center.position.x - detection.bbox.size_x / 2 &&
                 uv.x <= detection.bbox.center.position.x + detection.bbox.size_x / 2 &&
                 uv.y >= detection.bbox.center.position.y - detection.bbox.size_y / 2 &&
@@ -325,23 +357,22 @@ std::tuple<vision_msgs::msg::Detection3DArray, sensor_msgs::msg::PointCloud2> Po
                 detection_cloud_raw.points.push_back(point);
             }
         }
+        RCLCPP_INFO(this->get_logger(), "detection_cloud_raw : %d", detection_cloud_raw.points.size());
+
         detection_cloud = cloud2TransformedCloud(detection_cloud_raw, header);
+        RCLCPP_INFO(this->get_logger(), "detection_cloud : %d", detection_cloud.points.size());
         if (!detection_cloud.points.empty())
         {
             closest_detection_cloud = euclideanClusterExtraction(detection_cloud);
             createBoundingBox(detections3d_msg, closest_detection_cloud, detection.results);
-            combine_detection_cloud.insert(combine_detection_cloud.end(), closest_detection_cloud.begin(), closest_detection_cloud.end());
+            combine_detection_cloud.insert(combine_detection_cloud.end(), closest_detection_cloud.begin(),
+                                           closest_detection_cloud.end());
             detection_cloud_raw.points.clear();
-
-            RCLCPP_INFO(this->get_logger(), "Detection: %zu", detections3d_msg.detections.size());
-            RCLCPP_INFO(this->get_logger(), "Detection: %f", detections3d_msg.detections[0].bbox.size.x);
-            RCLCPP_INFO(this->get_logger(), "Detection: %f", detections3d_msg.detections[0].bbox.size.y);
-            RCLCPP_INFO(this->get_logger(), "Detection: %f", detections3d_msg.detections[0].bbox.size.z);
         }
     }
     pcl::toROSMsg(combine_detection_cloud, combine_detection_cloud_msg);
     combine_detection_cloud_msg.header = header;
-    return std::make_tuple(detections3d_msg, combine_detection_cloud_msg);
+    return std::make_tuple(detections3d_msg, combine_detection_cloud_msg); 
 }
 
 int main(int argc, char** argv) {

@@ -6,5 +6,5 @@ lidar3d_clustering_node:
     CLUSTER_MIN_SIZE: 10
     USE_PCA_BOX: false
     DISPLACEMENT_THRESH: 1.2
-    IOU_THRESH: 0.5
+    IOU_THRESH: 0.7
     USE_TRACKING: true

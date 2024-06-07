@@ -1,7 +1,6 @@
 // Based in this repo https://github.com/Alpaca-zip/ultralytics_ros/tree/noetic-devel
 
 #include <rclcpp/rclcpp.hpp>
-// Ros2
 #include <sensor_msgs/msg/point_cloud2.hpp>
 #include <sensor_msgs/msg/camera_info.hpp>
 #include <pcl_conversions/pcl_conversions.h>
@@ -16,21 +15,14 @@
 #include <tf2_eigen/tf2_eigen.h>
 #include <tf2_sensor_msgs/tf2_sensor_msgs.h>
 
-// C++
 #include <iostream>
 #include <vector>
 #include <algorithm>
 
-// Eigen
 #include <Eigen/Dense>
-
-// OpenCV
 #include <opencv2/opencv.hpp>
-
-// OpenCV and ROS
 #include <image_geometry/pinhole_camera_model.h>
 
-// PCL
 #include <pcl/point_types.h>
 #include <pcl/point_cloud.h>
 #include <pcl/common/common.h>
@@ -38,36 +30,35 @@
 #include <pcl/segmentation/extract_clusters.h>
 #include <pcl/filters/extract_indices.h>
 
-
-
 using namespace std;
 using namespace message_filters::sync_policies;
 
 class PointsDetector : public rclcpp::Node
 {
 private:
-    typedef ApproximateTime<sensor_msgs::msg::CameraInfo, sensor_msgs::msg::PointCloud2, vision_msgs::msg::Detection2DArray> SyncPolicy;
-    // Callbacks
-    // void timer_callback();
-    void callback_sync(const sensor_msgs::msg::CameraInfo::SharedPtr cam, const sensor_msgs::msg::PointCloud2::SharedPtr cloud, const vision_msgs::msg::Detection2DArray::SharedPtr detections);
-    pcl::PointCloud<pcl::PointXYZ> msg2TransformedCloud(const sensor_msgs::msg::PointCloud2::SharedPtr& cloud_msg);
+    using CameraInfoMsg = sensor_msgs::msg::CameraInfo;
+    using PointCloud2Msg = sensor_msgs::msg::PointCloud2;
+    using Detection2DArrayMsg = vision_msgs::msg::Detection2DArray;
 
-    std::tuple<vision_msgs::msg::Detection3DArray, sensor_msgs::msg::PointCloud2> projectCloud(const pcl::PointCloud<pcl::PointXYZ>& cloud, const vision_msgs::msg::Detection2DArray::SharedPtr& detections2d_msg, const std_msgs::msg::Header& header);
+    using SyncPolicy = ApproximateTime<CameraInfoMsg, PointCloud2Msg, Detection2DArrayMsg>;
 
-    double _cluster_tolerance = 0.3;
+    void callback_sync(const CameraInfoMsg::ConstSharedPtr &cam, const PointCloud2Msg::ConstSharedPtr &cloud, const Detection2DArrayMsg::ConstSharedPtr &detections);
+
+    pcl::PointCloud<pcl::PointXYZ> msg2TransformedCloud(const PointCloud2Msg::SharedPtr& cloud_msg);
+    std::tuple<vision_msgs::msg::Detection3DArray, PointCloud2Msg> projectCloud(const pcl::PointCloud<pcl::PointXYZ>& cloud, const Detection2DArrayMsg::SharedPtr& detections2d_msg, const std_msgs::msg::Header& header);
+
+    float _cluster_tolerance = 0.5;
     int _min_cluster_size = 50;
-    int _max_cluster_size =  25000;
+    int _max_cluster_size = 25000;
 
+    std::unique_ptr<message_filters::Subscriber<CameraInfoMsg>> cam_subscriber_;
+    std::unique_ptr<message_filters::Subscriber<PointCloud2Msg>> lidar_subscriber_;
+    std::unique_ptr<message_filters::Subscriber<Detection2DArrayMsg>> det_subscriber_;
+    std::unique_ptr<message_filters::Synchronizer<SyncPolicy>> sync_;
 
-    message_filters::Subscriber<sensor_msgs::msg::CameraInfo> cam_sub;
-    message_filters::Subscriber<sensor_msgs::msg::PointCloud2> lidar_sub;
-    message_filters::Subscriber<vision_msgs::msg::Detection2DArray> det_sub;
-    std::shared_ptr<message_filters::Synchronizer<SyncPolicy>> sync;
     image_geometry::PinholeCameraModel _cam_model;
-
     std::shared_ptr<tf2_ros::Buffer> tf_buffer_;
     std::shared_ptr<tf2_ros::TransformListener> tf_listener_;
-
 
     cv::Mat cameraMatrix;
     cv::Mat distCoeffs;
@@ -79,35 +70,34 @@ private:
     visualization_msgs::msg::MarkerArray createMarkerArray(const vision_msgs::msg::Detection3DArray& detections3d_msg);
 
     rclcpp::Publisher<vision_msgs::msg::Detection3DArray>::SharedPtr _detection3d_pub;
-    rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr _detection_cloud_pub;
+    rclcpp::Publisher<PointCloud2Msg>::SharedPtr _detection_cloud_pub;
     rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr _marker_pub;
-    // rclcpp::TimerBase::SharedPtr timer_;
-
-    std::string camera_frame_id = "camera_frame";
-
 
 public:
-    PointsDetector(/* args */);
+    PointsDetector();
     ~PointsDetector();
     void initialize();
 };
 
-PointsDetector::PointsDetector(/* args */) : Node("PointsDetector_node")
+PointsDetector::PointsDetector() : Node("PointsDetector_node")
 {
-    cam_sub.subscribe(this, "/zed2/camera_info");
-    lidar_sub.subscribe(this, "/points_raw");
-    det_sub.subscribe(this, "/detections");
+    RCLCPP_INFO(this->get_logger(), "Initializing PointsDetector...");
 
-    sync = std::make_shared<message_filters::Synchronizer<SyncPolicy>>(SyncPolicy(10), cam_sub, lidar_sub, det_sub);
-    sync->registerCallback(&PointsDetector::callback_sync, this);
-    
-    // timer_ = this->create_wall_timer(std::chrono::milliseconds(200), std::bind(&PointsDetector::timer_callback, this));
+    tf_buffer_ = std::make_shared<tf2_ros::Buffer>(this->get_clock());
+    tf_listener_ = std::make_shared<tf2_ros::TransformListener>(*tf_buffer_);
+
+    cam_subscriber_ = std::make_unique<message_filters::Subscriber<CameraInfoMsg>>(this, "/camera_info");
+    lidar_subscriber_ = std::make_unique<message_filters::Subscriber<PointCloud2Msg>>(this, "/points_roi");
+    det_subscriber_ = std::make_unique<message_filters::Subscriber<Detection2DArrayMsg>>(this, "/detections");
+
+    sync_ = std::make_unique<message_filters::Synchronizer<SyncPolicy>>(SyncPolicy(10), *cam_subscriber_, *lidar_subscriber_, *det_subscriber_);
+    sync_->registerCallback(std::bind(&PointsDetector::callback_sync, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3));
 
     _detection3d_pub = this->create_publisher<vision_msgs::msg::Detection3DArray>("/detections3d", 10);
-    _detection_cloud_pub = this->create_publisher<sensor_msgs::msg::PointCloud2>("/detection_cloud", 10);
+    _detection_cloud_pub = this->create_publisher<PointCloud2Msg>("/detection_cloud", 10);
     _marker_pub = this->create_publisher<visualization_msgs::msg::MarkerArray>("/marker_array", 10);
-    
-    RCLCPP_INFO(this->get_logger(), "PointsDetector_node initialized");
+
+    RCLCPP_INFO(this->get_logger(), "-------->PointsDetector_node initialized");
 }
 
 PointsDetector::~PointsDetector()
@@ -116,27 +106,18 @@ PointsDetector::~PointsDetector()
 
 void PointsDetector::initialize()
 {
-    tf_buffer_ = std::make_shared<tf2_ros::Buffer>(this->get_clock());
-    tf_listener_ = std::make_shared<tf2_ros::TransformListener>(*tf_buffer_, shared_from_this(), false);
+    RCLCPP_INFO(this->get_logger(), "PointsDetector initialized");
 }
 
-// void PointsDetector::timer_callback()
-// {
-
-// }
-
-void PointsDetector::callback_sync(const sensor_msgs::msg::CameraInfo::SharedPtr cam, const sensor_msgs::msg::PointCloud2::SharedPtr cloud, const vision_msgs::msg::Detection2DArray::SharedPtr detections)
+void PointsDetector::callback_sync(const CameraInfoMsg::ConstSharedPtr &cam, const PointCloud2Msg::ConstSharedPtr &cloud, const Detection2DArrayMsg::ConstSharedPtr &detections)
 {
+    RCLCPP_INFO(this->get_logger(), "callback_sync invoked");
+
     pcl::PointCloud<pcl::PointXYZ> transformed_cloud;
-    // vision_msgs::msg::Detection3DArray detections3d_msg;
-    // sensor_msgs::msg::PointCloud2 detection_cloud_msg;
     visualization_msgs::msg::MarkerArray marker_array_msg;
 
     cameraMatrix = (cv::Mat1d(3, 3) << cam->k[0], cam->k[1], cam->k[2], cam->k[3], cam->k[4], cam->k[5], cam->k[6], cam->k[7], cam->k[8]);
     distCoeffs = cv::Mat::zeros(4, 1, CV_64F);
-
-    // print something
-    RCLCPP_INFO(this->get_logger(), "callback_sync");
 
     _cam_model.fromCameraInfo(cam);
     transformed_cloud = msg2TransformedCloud(cloud);
@@ -147,6 +128,7 @@ void PointsDetector::callback_sync(const sensor_msgs::msg::CameraInfo::SharedPtr
     _detection_cloud_pub->publish(detection_cloud_msg);
     _marker_pub->publish(marker_array_msg);
 }
+
 
 
 void PointsDetector::project3DPointsTo2D(const std::vector<cv::Point3f>& points3D, std::vector<cv::Point2f>& points2D)
@@ -401,11 +383,9 @@ std::tuple<vision_msgs::msg::Detection3DArray, sensor_msgs::msg::PointCloud2> Po
 }
 
 
-
 int main(int argc, char** argv) {
     rclcpp::init(argc, argv);
     auto node = std::make_shared<PointsDetector>();
-    node->initialize();
     rclcpp::spin(node);
     rclcpp::shutdown();
     return 0;

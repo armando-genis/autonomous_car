@@ -96,10 +96,6 @@ LidarImuSync::LidarImuSync(/* args */) : Node("lidar_imu_sync")
 
     RCLCPP_INFO(this->get_logger(), "\033[1;32m----> lidar_imu_sync_node initialized.\033[0m");
 
-    
-
-
-
 }
 
 LidarImuSync::~LidarImuSync()

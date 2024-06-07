@@ -13,8 +13,6 @@ from vision_msgs.msg import Detection2DArray
 import random
 import torch
 
-# from ultralytics.tracker import BOTSORT, BYTETracker
-# from ultralytics.tracker.trackers.basetrack import BaseTrack
 
 from ultralytics.engine.results import Results
 from ultralytics.engine.results import Boxes
@@ -32,11 +30,8 @@ class Camera_subscriber(Node):
         self.threshold = 0.40
         self.enable = True
         self.device = device
-
-        # self.tracker = self.create_tracker(tracker)
         
-        tracker = "bytetrack.yaml"
-        model = '~/ros2/ros2_ws/src/lidar_camara_fusion/yolov8_niagara/scripts/yolov8n.pt'
+        model = '~/ros2_ws/src/autonomous_car/lidar_camara_fusion/yolov8_niagara/scripts/yolov8n.pt'
         self.yolo = YOLO(model)
         self.yolo.fuse()
         self.yolo.to(device)

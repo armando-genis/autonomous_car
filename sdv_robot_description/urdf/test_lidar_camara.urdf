@@ -10,29 +10,18 @@
     <xacro:property name="clearance" value="${0.3/2.0}" />
 
     <!--  BASE FOOTPRINT  -->
-    <link name="base_footprint"/>
+    <!-- <link name="base_footprint"/>
     <joint name="base_link_joint" type="fixed">
         <origin rpy="0 0 0" xyz="0 0 -0.38"/>
         <parent link="chassis_link"/>
         <child link="base_footprint"/>
-    </joint>
+    </joint> -->
 
     <link name="chassis_link">
-        <visual>
-            <origin xyz="0 0 0.0" rpy="-1.5708 0 -1.5708" />
-            <geometry>
-              <!-- <mesh filename="file://$(find sdv_robot_description)/meshes/hooke.dae" scale="0.001 0.001 0.001" /> -->
-              <mesh filename="file://$(find sdv_robot_description)/meshes/hook_pix.stl" scale="0.001 0.001 0.001"/>
-
-            </geometry>
-            <material name="Gray">
-              <color rgba="1.0 0.0 0.0 1.0"/>
-            </material>
-        </visual>
     </link>
 
 
-  <link name="rslidar">
+  <!-- <link name="rslidar">
   
       <visual>
         <origin xyz="0 0 0.0" rpy="0 0 0" />
@@ -49,22 +38,14 @@
     <origin xyz="0 0 1.23" rpy="0 0 0" />
     <parent link="chassis_link"/>
     <child link="rslidar"/>
-  </joint>
+  </joint> -->
 
   <link name="velodyne"/>
 
   <joint name="velodyne_base_mount_joint" type="fixed">
-    <origin xyz="0 0 1.23" rpy="0 0 0" />
+    <origin xyz="0 0 0.8" rpy="0 0 0" />
     <parent link="chassis_link"/>
     <child link="velodyne"/>
-  </joint>
-
-  <link name="warning_obstacle"/>
-
-  <joint name="warning_base_mount_joint" type="fixed">
-    <origin xyz="1.2 0.0 0.0" rpy="0 0 0" />
-    <parent link="chassis_link"/>
-    <child link="warning_obstacle"/>
   </joint>
 
   <link name="default_cam">
@@ -81,7 +62,7 @@
   </link>
 
   <joint name="default_cam_base_mount_joint" type="fixed">
-    <origin xyz="0.05 0 1.18" rpy="0 0 0" />
+    <origin xyz="0.05 0 0.75" rpy="0 0 0" />
     <parent link="chassis_link"/>
     <child link="default_cam"/>
   </joint>

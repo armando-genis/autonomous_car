@@ -1,13 +1,20 @@
-from launch import LaunchDescription
-from launch.actions import DeclareLaunchArgument
-from launch_ros.actions import Node
+import launch
+from launch.substitutions import Command, LaunchConfiguration
+import launch_ros
+import os
 
 def generate_launch_description():
 
-    return LaunchDescription([
-        DeclareLaunchArgument(
-            'use_sim_time',
-            default_value='true',
-            description='Use simulation (Gazebo) clock if true'),
-        Node(package='yolov8_niagara', executable='yolov8NiagaraBetter.py', output='screen'),
+    yolov8 = launch_ros.actions.Node(
+        package='yolov8_niagara',
+        executable='yolov8NiagaraBetter.py',
+        name='yolov8_niagara_node',
+        output='screen'
+
+    )
+    
+    return launch.LaunchDescription([
+        yolov8
     ])
+
+
