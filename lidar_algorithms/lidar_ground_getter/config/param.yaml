@@ -4,7 +4,8 @@ lidar_ground_node:
     num_seg_: 1
     num_iter_: 8
     num_lpr_: 400
-    th_seeds_: 0.04
+    th_seeds_: 0.3
     th_dist_: 0.3
-    sensor_height_: 1.63
+    sensor_height_: 1.93
+    sensor_rotation_y_: 0.174533
 

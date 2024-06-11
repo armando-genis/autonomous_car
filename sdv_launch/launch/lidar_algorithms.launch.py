@@ -67,8 +67,8 @@ def generate_launch_description():
         ground_getter,
         TimerAction(
             actions=[
-                # lidar3d_cluster,
-                # optimal_planner
+                lidar3d_cluster,
+                optimal_planner
             ],
             period='2.0', 
         ),

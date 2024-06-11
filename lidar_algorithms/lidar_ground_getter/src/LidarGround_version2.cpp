@@ -55,6 +55,7 @@ private:
     float th_seeds_;
     float th_dist_;
     float sensor_height_;
+    float sensor_rotation_y_;
 
     /* data */
     rclcpp::Subscription<sensor_msgs::msg::PointCloud2>::SharedPtr sub_;
@@ -84,6 +85,7 @@ LidarGround::LidarGround(/* args */): Node("lidar_ground_node")
     this->declare_parameter("th_seeds_", 1.0);
     this->declare_parameter("th_dist_", 0.3);
     this->declare_parameter("sensor_height_", 1.73);
+    this->declare_parameter("sensor_rotation_y_", 0.0);
 
     this->get_parameter("num_seg_", num_seg_);
     this->get_parameter("num_iter_", num_iter_);
@@ -91,6 +93,7 @@ LidarGround::LidarGround(/* args */): Node("lidar_ground_node")
     this->get_parameter("th_seeds_", th_seeds_);
     this->get_parameter("th_dist_", th_dist_);
     this->get_parameter("sensor_height_", sensor_height_);
+    this->get_parameter("sensor_rotation_y_", sensor_rotation_y_);
 
 
     sub_ = this->create_subscription<sensor_msgs::msg::PointCloud2>("/points_roi", 10, std::bind(&LidarGround::pointCloudCallback, this, std::placeholders::_1));
@@ -105,6 +108,7 @@ LidarGround::LidarGround(/* args */): Node("lidar_ground_node")
     RCLCPP_INFO(this->get_logger(), "\033[1;34m----> th_seeds: %f \033[0m", th_seeds_);
     RCLCPP_INFO(this->get_logger(), "\033[1;34m----> th_dist: %f \033[0m", th_dist_);
     RCLCPP_INFO(this->get_logger(), "\033[1;34m----> sensor_height: %f \033[0m", sensor_height_);
+    RCLCPP_INFO(this->get_logger(), "\033[1;34m----> sensor_rotation_y: %f \033[0m", sensor_rotation_y_);
     
 }
 
@@ -158,15 +162,28 @@ void LidarGround::pointCloudCallback(const sensor_msgs::msg::PointCloud2::Shared
     pcl::PointCloud<pcl::PointXYZI>::Ptr input_cloud(new pcl::PointCloud<pcl::PointXYZI>());
     pcl::fromROSMsg(*msg, *input_cloud);
 
+    // Define the rotation matrix for the Y-axis rotation (0.174533 radians)
+    Eigen::Matrix4f transform = Eigen::Matrix4f::Identity();
+    // float theta = 0.174533; // 10 degrees in radians
+
+    transform(0, 0) = cos(sensor_rotation_y_);
+    transform(0, 2) = sin(sensor_rotation_y_);
+    transform(2, 0) = -sin(sensor_rotation_y_);
+    transform(2, 2) = cos(sensor_rotation_y_);
+
+    // Apply the transformation to the input cloud
+    pcl::PointCloud<pcl::PointXYZI>::Ptr transformed_cloud(new pcl::PointCloud<pcl::PointXYZI>());
+    pcl::transformPointCloud(*input_cloud, *transformed_cloud, transform);
+
     pcl::PointCloud<pcl::PointXYZI>::Ptr ground_points(new pcl::PointCloud<pcl::PointXYZI>());
     pcl::PointCloud<pcl::PointXYZI>::Ptr notground_points(new pcl::PointCloud<pcl::PointXYZI>());
 
     pcl::PointCloud<pcl::PointXYZI>::Ptr seed_points(new pcl::PointCloud<pcl::PointXYZI>());
-    extractInitialSeeds(input_cloud, seed_points);
+    extractInitialSeeds(transformed_cloud, seed_points);
 
     Model model = estimatePlane(*seed_points);
 
-    for (auto& point : input_cloud->points) {
+    for (auto& point : transformed_cloud->points) {
         float dist = model.normal(0) * point.x + model.normal(1) * point.y + model.normal(2) * point.z + model.d;
         if (dist < th_dist_) {
             ground_points->points.push_back(point);
@@ -181,6 +198,7 @@ void LidarGround::pointCloudCallback(const sensor_msgs::msg::PointCloud2::Shared
     ground_msg.header.stamp = this->now();
     pub_->publish(ground_msg);
 }
+
 
 int main(int argc, char** argv) {
     rclcpp::init(argc, argv);

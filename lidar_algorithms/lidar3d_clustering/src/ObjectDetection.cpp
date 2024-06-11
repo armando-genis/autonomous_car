@@ -251,9 +251,9 @@ void ObjectDetection::pointCloudCallback(const sensor_msgs::msg::PointCloud2::Sh
             // Store current boxes and centroids as previous for the next iteration
             prev_boxes_.swap(curr_boxes);
             // Log the number of clusters
-            RCLCPP_INFO(this->get_logger(), "\033[1;31m ----->Number of clusters: %zu\033[0m", clusters.size());
+            // RCLCPP_INFO(this->get_logger(), "\033[1;31m ----->Number of clusters: %zu\033[0m", clusters.size());
             // print the size of the curr_boxes
-            RCLCPP_INFO(this->get_logger(), "\033[1;31m ----->Number of current id: %zu\033[0m", curr_boxes.size());
+            // RCLCPP_INFO(this->get_logger(), "\033[1;31m ----->Number of current id: %zu\033[0m", curr_boxes.size());
             curr_boxes.clear();
 
             
@@ -265,7 +265,7 @@ void ObjectDetection::pointCloudCallback(const sensor_msgs::msg::PointCloud2::Sh
     auto execution_time = std::chrono::duration_cast<std::chrono::milliseconds>(
                             std::chrono::system_clock::now() - init_time)
                             .count();
-    RCLCPP_INFO(this->get_logger(), "PointCloud callback finished in %ld ms", execution_time);
+    // RCLCPP_INFO(this->get_logger(), "PointCloud callback finished in %ld ms", execution_time);
 }
 
 

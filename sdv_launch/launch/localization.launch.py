@@ -64,7 +64,7 @@ def generate_launch_description():
                                             description='Absolute path to rviz config file'),
         rviz_node,
         lidar_localization_ros2,
-        waypoints_loader,
+        # waypoints_loader,
         path_to_odom,
         
     ])

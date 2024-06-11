@@ -1,6 +1,6 @@
 voxel_grid_filter:
   ros__parameters:
-    voxel_condition: false
+    voxel_condition: true
     roi_max_x_: 10.0
     roi_max_y_: 7.0
     roi_max_z_: 0.5

@@ -452,7 +452,7 @@ void optimalPlanner::line_steering_wheels_calculation(){
     lane_maker.id = 0;
     lane_maker.type = visualization_msgs::msg::Marker::LINE_STRIP;
     lane_maker.action = visualization_msgs::msg::Marker::ADD;
-    lane_maker.scale.x = 0.02;
+    lane_maker.scale.x = 0.07;
     lane_maker.scale.y = 0.5;
     lane_maker.scale.z = 0.5; 
     lane_maker.color.a = 1.0; 
