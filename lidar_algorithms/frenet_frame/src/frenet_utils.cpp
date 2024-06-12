@@ -192,11 +192,11 @@ FrenetPath FrenetUtils::optimalTrajectory(double d0, double dv0, double da0,
                                           std::vector<FrenetPath> &allPaths) {
     std::vector<FrenetPath> paths;
 
-    double lateral_range = laneWidth_ / 2; // Further reduce the range for compression
-    double lateral_step = laneWidth_ / 4; // Further reduce the step size for finer paths
+    double lateral_range = ((noOfLanes_ - 1) * laneWidth_) / 4;
+    double lateral_step = laneWidth_ / 4; // Finer step size for more paths
 
     double maxPredictionStep = 4; // Reduced maximum prediction step
-    double minPredictionStep = 2; // Reduced minimum prediction step
+    double minPredictionStep = 1; // Reduced minimum prediction step
 
     for (double T = minPredictionStep; T < maxPredictionStep; T += 0.2) {
         for (double dT = -lateral_range; dT <= lateral_range; dT += lateral_step) {
@@ -266,6 +266,7 @@ FrenetPath FrenetUtils::optimalTrajectory(double d0, double dv0, double da0,
 
 
 
+
 void FrenetUtils::trajectoryCost(FrenetPath &path) {
     double cd = path.jd * kjd_ + path.t.back() * ktd_ + std::pow(path.d.back()[0], 2) * ksd_;
     double cv = path.js * kjs_ + path.t.back() * kts_ + std::pow(path.s.front()[0] - path.s.back()[0], 2) * kss_;
@@ -273,19 +274,24 @@ void FrenetUtils::trajectoryCost(FrenetPath &path) {
 }
 
 bool FrenetUtils::isColliding(FrenetPath &path, std::vector<std::vector<double>> &obstacles) {
+    double robot_width = 1.0; // 0.5m on each side
+
     for (size_t i = 0; i < path.world.size(); ++i) {
         for (size_t j = 0; j < obstacles.size(); ++j) {
-            if (std::sqrt(std::pow(path.world[i][0] - obstacles[j][0], 2) + std::pow(path.world[i][1] - obstacles[j][1], 2)) <= 3)
+            double dist = std::sqrt(std::pow(path.world[i][0] - obstacles[j][0], 2) + std::pow(path.world[i][1] - obstacles[j][1], 2));
+            if (dist <= robot_width) {
                 return true;
+            }
         }
     }
     return false;
 }
 
+
 bool FrenetUtils::isWithinKinematicConstraints(FrenetPath &path) {
-    if (path.maxVelocity > maxVelocity_ || path.maxAcceleration > maxAcceleration_ || path.maxCurvature > maxCurvature_) {
-        return false;
-    }
+    // if (path.maxVelocity > maxVelocity_ || path.maxAcceleration > maxAcceleration_ || path.maxCurvature > maxCurvature_) {
+    //     return false;
+    // }
     return true;
 }
 
@@ -293,21 +299,18 @@ std::vector<FrenetPath> FrenetUtils::isValid(std::vector<FrenetPath> &paths, std
     std::vector<FrenetPath> validPaths;
     for (FrenetPath &path : paths) {
         bool colliding = isColliding(path, obstacles);
-        bool withinConstraints = isWithinKinematicConstraints(path);
 
-        if (!colliding && withinConstraints) {
+        if (!colliding) {
             validPaths.push_back(path);
-            RCLCPP_INFO(rclcpp::get_logger("frenet_utils"), "\033[1;32m----> VALID PATH\033[0m");
-
+            // RCLCPP_INFO(rclcpp::get_logger("frenet_utils"), "\033[1;32m----> VALID PATH\033[0m");
         } else {
-            RCLCPP_DEBUG(rclcpp::get_logger("frenet_utils"), "Path invalidated. Colliding: %s, Within Constraints: %s",
-                         colliding ? "true" : "false", withinConstraints ? "true" : "false");
-
-            RCLCPP_INFO(rclcpp::get_logger("frenet_utils"), "\033[1;36m----> NOT VALID PATH\033[0m");
+            // RCLCPP_DEBUG(rclcpp::get_logger("frenet_utils"), "Path invalidated due to collision.");
+            // RCLCPP_INFO(rclcpp::get_logger("frenet_utils"), "\033[1;36m----> NOT VALID PATH\033[0m");
         }
     }
     return validPaths;
 }
+
 
 void FrenetUtils::convertToWorldFrame(std::vector<FrenetPath> &paths, std::vector<std::vector<double>> &centerLane) {
     for (FrenetPath &path : paths) {
@@ -342,3 +345,5 @@ void FrenetUtils::convertToWorldFrame(std::vector<FrenetPath> &paths, std::vecto
         path.maxCurvature = curvature;
     }
 }
+
+

@@ -45,7 +45,7 @@ class WaypointsLoader : public rclcpp::Node
 {
 private:
     /* data */
-    std::string file_path_ = "/home/genis/Music/my_points.csv";
+    std::string file_path_ = "/home/genis/Music/wp.csv";
     std::ofstream ofs_;
     vector<Eigen::VectorXd> waypoints;
     // vector<Eigen::VectorXd> waypointsCubeLines;

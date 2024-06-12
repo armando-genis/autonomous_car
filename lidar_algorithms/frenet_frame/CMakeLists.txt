@@ -12,6 +12,7 @@ find_package(std_msgs REQUIRED)
 find_package(sensor_msgs REQUIRED)
 find_package(lidar_msgs REQUIRED)
 find_package(visualization_msgs REQUIRED)
+find_package(nav_msgs REQUIRED)
 
 # External dependencies
 find_package(Eigen3 REQUIRED)
@@ -30,7 +31,7 @@ endif()
 
 add_executable(frenet_frame_node src/FranetFrame.cpp src/frenet_utils.cpp src/polynomial.cpp)
 
-ament_target_dependencies(frenet_frame_node rclcpp std_msgs sensor_msgs lidar_msgs visualization_msgs)
+ament_target_dependencies(frenet_frame_node rclcpp std_msgs sensor_msgs lidar_msgs visualization_msgs nav_msgs)
 target_link_libraries(frenet_frame_node Eigen3::Eigen)
 
 

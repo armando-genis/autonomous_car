@@ -18,7 +18,7 @@
     </joint>
 
     <link name="chassis_link">
-        <!-- <visual>
+        <visual>
             <origin xyz="0 0 0.0" rpy="-1.5708 0 -1.5708" />
             <geometry>
               <mesh filename="file://$(find sdv_robot_description)/meshes/hook_pix.stl" scale="0.001 0.001 0.001"/>
@@ -27,9 +27,9 @@
             <material name="Gray">
               <color rgba="1.0 0.0 0.0 1.0"/>
             </material>
-        </visual> -->
+        </visual>
 
-        <visual>
+        <!-- <visual>
           <origin xyz="0 0 1.3"  rpy="-1.5708 0 -1.5708" /> 
           <geometry>
             <mesh filename="file://$(find sdv_robot_description)/meshes/sdv.stl" />
@@ -37,7 +37,7 @@
           <material name="Gray">
             <color rgba="1.0 1.0 1.0 1.0"/>
           </material>
-        </visual>
+        </visual> -->
 
     </link>
 
@@ -47,18 +47,12 @@
   </link>
 
   <joint name="rslidar_base_mount_joint" type="fixed">
-    <origin xyz="0 0 1.8" rpy="0 0 0" />
+    <origin xyz="0 0 1.23" rpy="0 0 0" />
     <parent link="chassis_link"/>
     <child link="rslidar"/>
   </joint>
 
-  <!-- <link name="velodyne"/>
 
-  <joint name="velodyne_base_mount_joint" type="fixed">
-    <origin xyz="0 0 1.23" rpy="0 0 0" />
-    <parent link="chassis_link"/>
-    <child link="velodyne"/>
-  </joint> -->
 
   <link name="velodyne">
       <visual>
@@ -73,8 +67,8 @@
   </link>
 
   <joint name="velodyne_base_mount_joint" type="fixed">
-    <origin xyz="0 0 1.8" rpy="0 0.174533 0" />
-    <!-- <origin xyz="0 0 1.8" rpy="0 0 0" /> -->
+    <!-- <origin xyz="0 0 1.8" rpy="0 0.174533 0" /> -->
+    <origin xyz="0 0 1.23" rpy="0 0 0" />
 
     <parent link="chassis_link"/>
     <child link="velodyne"/>
