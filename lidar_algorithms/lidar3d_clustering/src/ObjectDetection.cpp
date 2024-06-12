@@ -246,7 +246,7 @@ void ObjectDetection::pointCloudCallback(const sensor_msgs::msg::PointCloud2::Sh
             bbox_marker_publisher_->publish(bbox_markers);
 
             // publish size of the current boxes
-            RCLCPP_INFO(this->get_logger(), "Current boxes size: %ld", curr_boxes.size());
+            // RCLCPP_INFO(this->get_logger(), "Current boxes size: %ld", curr_boxes.size());
 
             // Store current boxes and centroids as previous for the next iteration
             prev_boxes_.swap(curr_boxes);

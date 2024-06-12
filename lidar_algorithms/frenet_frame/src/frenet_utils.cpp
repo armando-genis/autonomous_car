@@ -192,8 +192,14 @@ FrenetPath FrenetUtils::optimalTrajectory(double d0, double dv0, double da0,
                                           std::vector<FrenetPath> &allPaths) {
     std::vector<FrenetPath> paths;
 
-    for (double T = minPredictionStep_; T < maxPredictionStep_; T += 0.2) {
-        for (double dT = -((noOfLanes_ - 1) * laneWidth_) / 2; dT <= ((noOfLanes_ - 1) * laneWidth_) / 2; dT += laneWidth_) {
+    double lateral_range = laneWidth_ / 2; // Further reduce the range for compression
+    double lateral_step = laneWidth_ / 4; // Further reduce the step size for finer paths
+
+    double maxPredictionStep = 4; // Reduced maximum prediction step
+    double minPredictionStep = 2; // Reduced minimum prediction step
+
+    for (double T = minPredictionStep; T < maxPredictionStep; T += 0.2) {
+        for (double dT = -lateral_range; dT <= lateral_range; dT += lateral_step) {
             double dvT = 0, daT = 0;
             std::vector<std::vector<double>> latitudinalTrajectory;
             QuinticPolynomial quintic(d0, dv0, da0, dT, dvT, daT, T);
@@ -257,6 +263,8 @@ FrenetPath FrenetUtils::optimalTrajectory(double d0, double dv0, double da0,
 
     return optimalTrajectory;
 }
+
+
 
 void FrenetUtils::trajectoryCost(FrenetPath &path) {
     double cd = path.jd * kjd_ + path.t.back() * ktd_ + std::pow(path.d.back()[0], 2) * ksd_;
