@@ -184,7 +184,7 @@ void WaypointsLoader::visualizeNewWaypoints() {
 
         visualization_msgs::msg::Marker marker;
         marker.header.stamp = this->now();
-        marker.header.frame_id = "base_footprint";
+        marker.header.frame_id = "map";
         marker.id = i + 1000;
         marker.type = visualization_msgs::msg::Marker::SPHERE;
         marker.action = visualization_msgs::msg::Marker::ADD;
@@ -192,19 +192,19 @@ void WaypointsLoader::visualizeNewWaypoints() {
         marker.pose.position.y = waypoints[i](1); 
         marker.pose.position.z = waypoints[i](2);
         marker.pose.orientation = q;
-        marker.scale.x = 0.9;
-        marker.scale.y = 0.9;
-        marker.scale.z = 0.9;
+        marker.scale.x = 0.5;
+        marker.scale.y = 0.1;
+        marker.scale.z = 0.1;
         marker.color.a = 1.0;
-        marker.color.r = 0.58;
-        marker.color.g = 1.0;
-        marker.color.b = 0.2;
+        marker.color.r = 1.0;
+        marker.color.g = 0.0;
+        marker.color.b = 0.0;
         
         marker_array.markers.push_back(marker);
 
         visualization_msgs::msg::Marker marker_info;
         marker_info.header.stamp = this->now();
-        marker_info.header.frame_id = "base_footprint";
+        marker_info.header.frame_id = "map";
         marker_info.id = i + 2000;
         marker_info.type = visualization_msgs::msg::Marker::TEXT_VIEW_FACING;
         marker_info.action = visualization_msgs::msg::Marker::ADD;

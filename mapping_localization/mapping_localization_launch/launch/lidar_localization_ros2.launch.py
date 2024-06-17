@@ -21,18 +21,10 @@ def generate_launch_description():
     ld = launch.LaunchDescription()
 
     lidar_tf = launch_ros.actions.Node(
-        name='lidar_tf',
         package='tf2_ros',
         executable='static_transform_publisher',
-        arguments=['0','0','0','0','0','0','1','base_link','velodyne']
-        )
-
-    chassis_tf = launch_ros.actions.Node(
-        name='imu_tf',
-        package='tf2_ros',
-        executable='static_transform_publisher',
-        arguments=['0','0','-1.8','0.0','0','0','1','velodyne','chassis_link']
-        )
+        arguments=['0', '0', '-1.8', '0', '-0.174533', '0', 'velodyne', 'base_link']
+    )
 
     localization_param_dir = launch.substitutions.LaunchConfiguration(
         'localization_param_dir',
@@ -94,7 +86,7 @@ def generate_launch_description():
 
     ld.add_action(lidar_localization)
     ld.add_action(lidar_tf)
-    ld.add_action(chassis_tf)
+    # ld.add_action(chassis_tf)
 
     ld.add_action(to_inactive)
 

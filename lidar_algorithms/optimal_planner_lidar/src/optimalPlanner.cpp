@@ -426,7 +426,7 @@ void optimalPlanner::line_steering_wheels_calculation(){
     // RCLCPP_INFO(this->get_logger(), "Size of y_new: %d", y_new.size());
 
     std::vector<double> segment_x, segment_y;
-    extract_segment_cubic_lines(x_new, y_new, segment_x, segment_y, 5);
+    extract_segment_cubic_lines(x_new, y_new, segment_x, segment_y, 3);
 
     // Publish the lane
     nav_msgs::msg::Path path;

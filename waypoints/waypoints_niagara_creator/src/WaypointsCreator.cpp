@@ -45,7 +45,7 @@ private:
   double current_velocity_ = 0;
 
 
-  double interval_ = 1;
+  double interval_ = 2;
   bool first_data_received_ = false;
 
   std::string file_path_ = "/home/genis/Music/wp.csv";
@@ -150,6 +150,7 @@ void WaypointsCreator::writePoseToFile(const nav_msgs::msg::Odometry& odom_pos, 
   RCLCPP_INFO(this->get_logger(), "Enter to writePoseToFile");
 }
 
+
 double WaypointsCreator::yaw_callback(const nav_msgs::msg::Odometry& odom_pos) const {
     // Convert ROS2 Quaternion message to tf2 Quaternion
     tf2::Quaternion q(
@@ -163,17 +164,10 @@ double WaypointsCreator::yaw_callback(const nav_msgs::msg::Odometry& odom_pos) c
     double roll, pitch, yaw;
     m.getRPY(roll, pitch, yaw);
 
-    // Add 90 degrees (π/2 radians) to yaw
-    yaw += M_PI / 2;
-
-    // Normalize the yaw angle to the range [-π, π]
-    yaw = std::fmod(yaw + M_PI, 2 * M_PI);
-    if (yaw < 0)
-        yaw += 2 * M_PI;
-    yaw -= M_PI;
-
     return yaw;
 }
+
+
 
 void WaypointsCreator::waypointsPath(){
   if (first_data_received_){

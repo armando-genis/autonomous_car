@@ -11,7 +11,7 @@
       scan_min_range: 1.0
       scan_period: 0.3
       use_pcd_map: true
-      map_path: "/home/genis/ros2/ros2_ws/src/mapping_localization/mapping_localization_launch/maps/cloudGlobal.pcd"
+      map_path: "/home/genis/ros2_ws/src/autonomous_car/pcd_maps/cloudGlobal.pcd"
       set_initial_pose: true
       initial_pose_x: 0.0
       initial_pose_y: 0.0
@@ -25,4 +25,4 @@
       enable_debug: true
       global_frame_id: map
       odom_frame_id: odom
-      base_frame_id: base_link
+      base_frame_id: velodyne
