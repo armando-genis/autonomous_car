@@ -20,7 +20,7 @@ sudo apt install ros-humble-vision-opencv
 sudo apt install ros-humble-xacro
 sudo apt install ros-humble-velodyne-msgs
 sudo apt install ros-humble-diagnostic-updater
-
+sudo apt-get install libqt5serialport5-dev
 
 #GTSAM librari for LIO-SAM
 sudo add-apt-repository ppa:borglab/gtsam-release-4.1
