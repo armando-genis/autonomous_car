@@ -10,6 +10,7 @@
 #include <std_msgs/msg/float32_multi_array.hpp>
 #include <std_msgs/msg/float32.hpp> 
 #include <geometry_msgs/msg/pose.hpp>
+#include <std_msgs/msg/int32.hpp>
 
 
 // C++
@@ -53,6 +54,8 @@ private:
     double getDistanceFromOdom(Eigen::VectorXd wapointPoint);
     void publishTargetWaypointPose();
     geometry_msgs::msg::Quaternion yawToQuaternion(double yaw);
+    void publishTargetWaypointIndex();
+
     
     // Callbacks
     void odom_callback(const nav_msgs::msg::Odometry::SharedPtr msg);
@@ -66,7 +69,8 @@ private:
     rclcpp::Subscription<std_msgs::msg::Float32MultiArray>::SharedPtr velocities_sub_;
     rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr target_waypoint_pub_;
     rclcpp::Publisher<std_msgs::msg::Float32>::SharedPtr speed_pub_;  // Updated to Float32
-    rclcpp::Publisher<geometry_msgs::msg::Pose>::SharedPtr target_waypoint_pose_pub_;
+    // rclcpp::Publisher<geometry_msgs::msg::Pose>::SharedPtr target_waypoint_pose_pub_;
+    rclcpp::Publisher<std_msgs::msg::Int32>::SharedPtr target_waypoint_index_pub_;
 
 
 public:
@@ -94,7 +98,9 @@ WaypointsCalculations::WaypointsCalculations(/* args */) : Node("waypoints_calcu
 
     speed_pub_ = this->create_publisher<std_msgs::msg::Float32>("peedtarget", 10);  // Updated to Float32
 
-    target_waypoint_pose_pub_ = this->create_publisher<geometry_msgs::msg::Pose>("target_waypoint_pose", 10);
+    // target_waypoint_pose_pub_ = this->create_publisher<geometry_msgs::msg::Pose>("target_waypoint_pose", 10);
+    target_waypoint_index_pub_ = this->create_publisher<std_msgs::msg::Int32>("target_waypoint_index", 10);
+
 
     waypoints_sub_ = this->create_subscription<visualization_msgs::msg::MarkerArray>(
         "waypoints_loaded", 10,
@@ -129,7 +135,8 @@ void WaypointsCalculations::pub_callback()
 {
     waypointsComputation();
     marketTargetWaypoint();
-    publishTargetWaypointPose();
+    // publishTargetWaypointPose();
+    publishTargetWaypointIndex();
 }
 
 // ODOM CALLBACK    
@@ -321,7 +328,7 @@ void WaypointsCalculations::publishTargetWaypointPose()
     geometry_msgs::msg::Quaternion q = yawToQuaternion(waypoints[target_waypoint](3));
     msg.orientation = q;
 
-    target_waypoint_pose_pub_->publish(msg);
+    // target_waypoint_pose_pub_->publish(msg);
 }
 
 geometry_msgs::msg::Quaternion WaypointsCalculations::yawToQuaternion(double yaw)
@@ -339,6 +346,16 @@ geometry_msgs::msg::Quaternion WaypointsCalculations::yawToQuaternion(double yaw
 
     return quaternion_msg;
 }
+
+void WaypointsCalculations::publishTargetWaypointIndex()
+{
+    if (waypoints.empty()) return;
+    
+    std_msgs::msg::Int32 msg;
+    msg.data = target_waypoint;
+    target_waypoint_index_pub_->publish(msg);
+}
+
 
 int main(int argc, char** argv) {
     rclcpp::init(argc, argv);

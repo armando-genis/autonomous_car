@@ -5,6 +5,7 @@
 #include <lidar_msgs/msg/obstacle_data.hpp>
 #include <visualization_msgs/msg/marker_array.hpp>
 #include <nav_msgs/msg/path.hpp>
+#include <std_msgs/msg/int32.hpp>
 
 #include "frenet_utils.hpp"
 
@@ -32,6 +33,11 @@ private:
     double x = 0;
     double y = 0;
 
+    int target_waypoint_index_ = 0;
+    std::vector<Eigen::VectorXd> waypoints_segment; // Segment of waypoints
+
+
+
     /* data */
     vector<int8_t> obstacle_bool_array_;
     vector<std::vector<geometry_msgs::msg::Point>> hull_vector;
@@ -49,6 +55,7 @@ private:
     void publishFrenetPaths(const std::vector<FrenetPath>& paths, bool hasOptimalPath);
     void publishOptimalFrenetPath(const FrenetPath& optimalPath, bool hasOptimalPath);
     void publishObstacles(const std::vector<std::vector<double>>& obstacles);
+    void targetIndexCallback(const std_msgs::msg::Int32::SharedPtr msg);
 
     // Subscriber and publisher
     rclcpp::Subscription<std_msgs::msg::Int8MultiArray>::SharedPtr collision_subscriber_;
@@ -59,6 +66,8 @@ private:
     rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr frenet_paths_publisher_;
     rclcpp::Publisher<nav_msgs::msg::Path>::SharedPtr optimal_frenet_path_publisher_;
     rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr obstacles_publisher_;
+    rclcpp::Subscription<std_msgs::msg::Int32>::SharedPtr target_index_sub_;
+
 
 public:
     FranetFrame(/* args */);
@@ -73,6 +82,11 @@ FranetFrame::FranetFrame(/* args */) : Node("frenet_frame_node") {
 
     lane_publisher_ = this->create_publisher<visualization_msgs::msg::MarkerArray>("lane_markers", 10);
     frenet_paths_publisher_ = this->create_publisher<visualization_msgs::msg::MarkerArray>("frenet_paths", 10);
+
+    target_index_sub_ = this->create_subscription<std_msgs::msg::Int32>(
+        "target_waypoint_index", 10,
+        std::bind(&FranetFrame::targetIndexCallback, this, std::placeholders::_1));
+    
 
     optimal_frenet_path_publisher_ = this->create_publisher<nav_msgs::msg::Path>("optimal_frenet_path", 10); 
     
@@ -120,13 +134,22 @@ void FranetFrame::waypoints_callback(const visualization_msgs::msg::MarkerArray:
         return;
     }
 
+    // Update the waypoints_segment based on the target waypoint index
+    int start_index = std::max(target_waypoint_index_ - 3, 0);
+    int end_index = std::min(target_waypoint_index_ + 8, static_cast<int>(waypoints.size()) - 1);
+    waypoints_segment.clear();
+
+    for (int i = start_index; i <= end_index; ++i) {
+        waypoints_segment.push_back(waypoints[i]);
+    }
+
     // Center Lane
     // std::vector<std::vector<double>> centerLane;
     // double y = 0.0; // Constant y for a horizontal line
     // double distanceTraced = 0.0;
     // double prevX = 0.0;
     // double prevY = y;
-    // for (double x = 0; x < 140; x += 0.01) {
+    // for (double x = 0; x < 10; x += 0.01) {
     //     double curvature = 0.0; // Straight line has zero curvature
     //     double yaw = 0.0;       // Straight line has zero yaw
     //     distanceTraced += std::sqrt(std::pow(x - prevX, 2) + std::pow(y - prevY, 2));
@@ -137,12 +160,12 @@ void FranetFrame::waypoints_callback(const visualization_msgs::msg::MarkerArray:
 
 
     std::vector<std::vector<double>> centerLane;
-    if (waypoints.size() > 1) {
+    if (waypoints_segment.size() > 1) {
         double totalDistanceTraced = 0.0; // Initialize total distance traced
 
-        for (size_t i = 0; i < waypoints.size() - 1; ++i) {
-            Eigen::VectorXd start = waypoints[i];
-            Eigen::VectorXd end = waypoints[i + 1];
+        for (size_t i = 0; i < waypoints_segment.size() - 1; ++i) {
+            Eigen::VectorXd start = waypoints_segment[i];
+            Eigen::VectorXd end = waypoints_segment[i + 1];
 
             double segmentLength = (end - start).norm();
             double steps = segmentLength / 0.05; // Adjust the step size if necessary
@@ -195,10 +218,10 @@ void FranetFrame::waypoints_callback(const visualization_msgs::msg::MarkerArray:
     }
 
     // Publish lane markers
-    publishLaneMarkers(centerLane);
+    // publishLaneMarkers(centerLane);
     publishOptimalFrenetPath(optimalPath, hasOptimalPath);
     publishFrenetPaths(allPaths, hasOptimalPath); // Pass hasOptimalPath to the function
-    publishObstacles(obstacles);
+    // publishObstacles(obstacles);
 }
 
 
@@ -206,7 +229,7 @@ void FranetFrame::publishLaneMarkers(const std::vector<std::vector<double>>& cen
     visualization_msgs::msg::MarkerArray marker_array;
     visualization_msgs::msg::Marker marker;
 
-    marker.header.frame_id = "base_footprint";
+    marker.header.frame_id = "map";
     marker.header.stamp = this->now();
     marker.ns = "lanes";
     marker.type = visualization_msgs::msg::Marker::LINE_STRIP;
@@ -235,7 +258,7 @@ void FranetFrame::publishFrenetPaths(const std::vector<FrenetPath>& paths, bool 
     int id = 0;
     for (const auto& path : paths) {
         visualization_msgs::msg::Marker marker;
-        marker.header.frame_id = "base_footprint";
+        marker.header.frame_id = "map";
         marker.header.stamp = this->now();
         marker.ns = "frenet_paths";
         marker.id = id++;
@@ -266,7 +289,7 @@ void FranetFrame::publishFrenetPaths(const std::vector<FrenetPath>& paths, bool 
 
 void FranetFrame::publishOptimalFrenetPath(const FrenetPath& optimalPath, bool hasOptimalPath) {
     nav_msgs::msg::Path path_msg;
-    path_msg.header.frame_id = "base_footprint";
+    path_msg.header.frame_id = "map";
     path_msg.header.stamp = this->now();
 
 
@@ -274,7 +297,7 @@ void FranetFrame::publishOptimalFrenetPath(const FrenetPath& optimalPath, bool h
 
     for (size_t i = 0; i < max_points; ++i) {
         geometry_msgs::msg::PoseStamped pose_stamped;
-        pose_stamped.header.frame_id = "base_footprint";
+        pose_stamped.header.frame_id = "map";
         // pose_stamped.header.stamp = this->now();
         pose_stamped.pose.position.x = optimalPath.world[i][0];
         pose_stamped.pose.position.y = optimalPath.world[i][1];
@@ -294,6 +317,11 @@ void FranetFrame::publishOptimalFrenetPath(const FrenetPath& optimalPath, bool h
 
 
 
+void FranetFrame::targetIndexCallback(const std_msgs::msg::Int32::SharedPtr msg) {
+    target_waypoint_index_ = msg->data;
+    // RCLCPP_INFO(this->get_logger(), "Target waypoint index updated: %d", target_waypoint_index_);
+    // updateCenterLane();
+}
 
 
 void FranetFrame::publishObstacles(const std::vector<std::vector<double>>& obstacles) {

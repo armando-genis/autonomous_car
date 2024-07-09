@@ -49,6 +49,24 @@
     <child link="rslidar"/>
   </joint>
 
+  <link name="velodyne">
+      <visual>
+        <origin xyz="0 0 0.0" rpy="0 0 0" />
+        <geometry>
+          <cylinder length="0.073" radius="0.04" />
+        </geometry>
+        <material name="Gray">
+          <color rgba="1.0 0.0 0.0 1.0"/>
+        </material>
+      </visual>
+  </link>
+
+  <joint name="velodyne_base_mount_joint" type="fixed">
+    <origin xyz="0 0 1.6" rpy="0 0 0" />
+    <parent link="chassis_link"/>
+    <child link="velodyne"/>
+  </joint>
+
  <link name="warning_obstacle"/>
 
   <joint name="warning_base_mount_joint" type="fixed">

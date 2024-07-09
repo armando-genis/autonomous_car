@@ -26,6 +26,20 @@ def generate_launch_description():
         arguments=['0', '0', '-1.8', '0', '-0.174533', '0', 'velodyne', 'base_link']
     )
 
+    # base_link to base_footprint
+    chassis_tf = launch_ros.actions.Node(
+        package='tf2_ros',
+        executable='static_transform_publisher',
+        arguments=['0', '0', '-0.38', '0', '0', '0', 'base_link', 'base_footprint']
+    )
+
+    # base_link to warning_obstacle
+    warning_obstacle_tf = launch_ros.actions.Node(
+        package='tf2_ros',
+        executable='static_transform_publisher',
+        arguments=['1.2', '0', '0', '0', '0', '0', 'base_link', 'warning_obstacle']
+    )
+
     localization_param_dir = launch.substitutions.LaunchConfiguration(
         'localization_param_dir',
         default=os.path.join(
@@ -86,7 +100,9 @@ def generate_launch_description():
 
     ld.add_action(lidar_localization)
     ld.add_action(lidar_tf)
-    # ld.add_action(chassis_tf)
+    ld.add_action(chassis_tf)
+    ld.add_action(warning_obstacle_tf)
+
 
     ld.add_action(to_inactive)
 

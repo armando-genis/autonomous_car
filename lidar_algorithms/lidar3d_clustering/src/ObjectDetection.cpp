@@ -354,6 +354,7 @@ void ObjectDetection::convex_hull(std::vector<pcl::PointCloud<pcl::PointXYZ>::Pt
                 // Create a marker for the convex hull
                 visualization_msgs::msg::Marker hull_marker;
                 hull_marker.header.frame_id = "base_footprint";
+                hull_marker.header.stamp = this->now();
                 hull_marker.ns = "hull";
                 hull_marker.id = index;
                 hull_marker.type = visualization_msgs::msg::Marker::LINE_STRIP;

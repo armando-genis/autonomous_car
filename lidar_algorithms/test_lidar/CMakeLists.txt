@@ -9,6 +9,10 @@ endif()
 find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(std_msgs REQUIRED)
+find_package(visualization_msgs REQUIRED)
+find_package(tf2 REQUIRED)
+# External dependencies
+find_package(Eigen3 REQUIRED)
 
 if(BUILD_TESTING)
   find_package(ament_lint_auto REQUIRED)
@@ -23,7 +27,8 @@ if(BUILD_TESTING)
 endif()
 
 add_executable(yaw_car_test src/yaw_car_test.cpp)
-ament_target_dependencies(yaw_car_test rclcpp std_msgs)
+ament_target_dependencies(yaw_car_test rclcpp std_msgs visualization_msgs tf2)
+target_link_libraries(yaw_car_test Eigen3::Eigen)
 
 install(TARGETS
   yaw_car_test

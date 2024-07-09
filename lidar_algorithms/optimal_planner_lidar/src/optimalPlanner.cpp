@@ -187,9 +187,10 @@ void optimalPlanner::publishOccupancyGrid()
 {
     nav_msgs::msg::OccupancyGrid grid;
     grid.header.frame_id = "base_footprint"; 
+    grid.header.stamp = this->now();
     grid.info.resolution = 0.1;  // in meters
-    grid.info.width = 115;  // grid width
-    grid.info.height = 100;  // grid height
+    grid.info.width = 120;  // grid width
+    grid.info.height = 120;  // grid height
     grid.info.origin.position.x = -5.0;  // Center the origin of the grid
     grid.info.origin.position.y = -5.0;  // Center the origin of the grid
     grid.info.origin.position.z = 0.0;
@@ -426,7 +427,7 @@ void optimalPlanner::line_steering_wheels_calculation(){
     // RCLCPP_INFO(this->get_logger(), "Size of y_new: %d", y_new.size());
 
     std::vector<double> segment_x, segment_y;
-    extract_segment_cubic_lines(x_new, y_new, segment_x, segment_y, 3);
+    extract_segment_cubic_lines(x_new, y_new, segment_x, segment_y, 5);
 
     // Publish the lane
     nav_msgs::msg::Path path;

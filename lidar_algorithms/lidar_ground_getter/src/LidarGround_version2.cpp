@@ -1,5 +1,3 @@
-// base on https://github.com/MarianoCaccavale/LidarNode/blob/main/ground_removal/src/ground_plane_fitting.cpp
-
 
 #include <rclcpp/rclcpp.hpp>
 
